@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark is the default theme (trading-desk / terminal density). Light is an
+   explicit opt-in via the .light class on <html>, toggled in TopBar.
+   Values are "R G B" triplets (no commas) so Tailwind's color-opacity
+   modifiers (e.g. bg-danger/15) work via rgb(var(--x) / <alpha-value>). */
+:root,
+html.dark {
+  --bg-app: 10 12 16;
+  --bg-surface: 18 21 27;
+  --bg-surface-2: 26 30 38;
+  --border-color: 38 43 53;
+  --text-primary: 230 233 239;
+  --text-secondary: 154 164 178;
+  --text-muted: 98 108 122;
+  --accent: 59 130 246;
+  --accent-fg: 255 255 255;
+  --status-success: 34 197 94;
+  --status-warning: 234 179 8;
+  --status-danger: 239 68 68;
+  --status-info: 56 189 248;
+}
+
+html.light {
+  --bg-app: 244 245 247;
+  --bg-surface: 255 255 255;
+  --bg-surface-2: 238 240 243;
+  --border-color: 221 225 231;
+  --text-primary: 18 21 27;
+  --text-secondary: 75 85 99;
+  --text-muted: 124 133 147;
+  --accent: 37 99 235;
+  --accent-fg: 255 255 255;
+  --status-success: 22 163 74;
+  --status-warning: 202 138 4;
+  --status-danger: 220 38 38;
+  --status-info: 2 132 199;
+}
+
+body {
+  background-color: rgb(var(--bg-app));
+  color: rgb(var(--text-primary));
+}
+
+/* Dense tabular numerics for scanability. */
+.tabular-num {
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg-app));
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--bg-surface-2));
+  border-radius: 4px;
+}

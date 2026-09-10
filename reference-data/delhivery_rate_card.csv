@@ -1,0 +1,8 @@
+slab_upper_bound_grams,slab_label,zone_a,zone_b,zone_c1,zone_c2,zone_d1,zone_d2,zone_e,zone_f
+250,DL 0-250 gm,25,29,29,30,31,32,39,43
+500,DL Upto 500 gm (flat),29,33,36,38,38,40,48,53
+5000,DL Upto 5 kg (flat),90,125,160,175,178,185,224,249
+10000,DL Upto 10 kg (flat),147,184,235,257,263,273,331,368
+,DL Additional 500gm slab (500g-5kg band, per 500g over 500g),7,12,16,21,21,24,29,32
+,DL Additional 1kg slab (5kg-10kg band, per 1kg over 5kg),19,21,25,27,29,32,38,45
+,DL Additional 1kg slab (beyond 10kg, per 1kg over 10kg),13,16,18,20,21,23,32,33

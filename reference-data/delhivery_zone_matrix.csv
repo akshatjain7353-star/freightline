@@ -1,0 +1,9 @@
+zone_code,zone_type
+A,Within City/Same city
+B,upto 500 KM Regional (Single connection)
+C1,Metro to Metro (501 KM - 1400 KM)
+C2,Metro to Metro (1401 KM - 2500 KM)
+D1,Rest of India (501 KM - 1400 KM)
+D2,Rest of India (1401 KM - 2500 KM)
+E,"North-East, Jammu, HP, UK"
+F,Leh Ladakh, Andaman Nicobar, Manipur, Kashmir

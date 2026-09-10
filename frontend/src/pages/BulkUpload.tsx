@@ -1,0 +1,148 @@
+import { useState } from "react";
+import Papa from "papaparse";
+import { AppLayout } from "../components/layout/AppLayout";
+import { bulkUploadShipments, type BulkUploadRowResult, type CreateShipmentInput } from "../api/backend";
+
+const EXPECTED_COLUMNS = [
+  "orderId",
+  "clientId",
+  "clientName",
+  "addressLine",
+  "city",
+  "carrierCode",
+  "originPincode",
+  "destinationPincode",
+  "weightGrams",
+  "lengthCm",
+  "widthCm",
+  "heightCm",
+  "paymentMode",
+  "shipmentValueRupees",
+];
+
+function parseRow(raw: Record<string, string | undefined>): CreateShipmentInput {
+  return {
+    orderId: raw.orderId ?? "",
+    clientId: raw.clientId ?? "",
+    clientName: raw.clientName ?? "",
+    addressLine: raw.addressLine ?? "",
+    city: raw.city ?? "",
+    carrierCode: raw.carrierCode || "delhivery",
+    originPincode: raw.originPincode ?? "",
+    destinationPincode: raw.destinationPincode ?? "",
+    weightGrams: parseFloat(raw.weightGrams ?? ""),
+    dimensions: {
+      lengthCm: parseFloat(raw.lengthCm ?? ""),
+      widthCm: parseFloat(raw.widthCm ?? ""),
+      heightCm: parseFloat(raw.heightCm ?? ""),
+    },
+    paymentMode: raw.paymentMode === "COD" ? "COD" : "Prepaid",
+    shipmentValueRupees: parseFloat(raw.shipmentValueRupees ?? "") || 0,
+  };
+}
+
+export function BulkUpload() {
+  const [rows, setRows] = useState<CreateShipmentInput[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [results, setResults] = useState<BulkUploadRowResult[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleFile(file: File) {
+    setFileName(file.name);
+    setResults(null);
+    setError(null);
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        setRows(result.data.map(parseRow));
+      },
+      error: (err) => setError(err.message),
+    });
+  }
+
+  async function handleUpload() {
+    setUploading(true);
+    setError(null);
+    try {
+      const response = await bulkUploadShipments(rows);
+      setResults(response.results);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <AppLayout title="Bulk Upload">
+      <div className="max-w-3xl flex flex-col gap-4">
+        <div className="bg-surface border border-border rounded p-4 text-sm text-secondary">
+          <p className="mb-2">CSV columns expected (header row required):</p>
+          <code className="block text-xs bg-surface2 rounded p-2 font-mono overflow-x-auto whitespace-pre">
+            {EXPECTED_COLUMNS.join(",")}
+          </code>
+        </div>
+
+        <div className="bg-surface border border-border rounded p-4 flex items-center gap-4">
+          <input
+            type="file"
+            accept=".csv"
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+            className="text-sm text-secondary"
+          />
+          {fileName && <span className="text-xs text-muted">{fileName}</span>}
+        </div>
+
+        {rows.length > 0 && !results && (
+          <div className="bg-surface border border-border rounded p-4 flex items-center justify-between">
+            <span className="text-sm text-secondary">{rows.length} rows parsed and ready to upload.</span>
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="bg-accent text-accent-fg rounded py-1.5 px-4 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            >
+              {uploading ? "Uploading..." : "Upload shipments"}
+            </button>
+          </div>
+        )}
+
+        {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
+
+        {results && (
+          <div className="bg-surface border border-border rounded overflow-hidden">
+            <div className="p-4 border-b border-border text-sm text-secondary">
+              {results.filter((r) => r.success).length} succeeded, {results.filter((r) => !r.success).length} failed
+              out of {results.length}
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-surface2 text-xs text-secondary uppercase">
+                <tr>
+                  <th className="text-left px-3 py-2">Order ID</th>
+                  <th className="text-left px-3 py-2">Status</th>
+                  <th className="text-left px-3 py-2">AWB / Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.orderId} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono text-xs">{r.orderId}</td>
+                    <td className="px-3 py-2">
+                      {r.success ? (
+                        <span className="text-success">Success</span>
+                      ) : (
+                        <span className="text-danger">Failed</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-secondary">{r.awb ?? r.error}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
