@@ -88,6 +88,12 @@ async function resolveViaComputedFallback(
   originPincode: string,
   destinationPincode: string,
 ): Promise<ZoneResolution> {
+  // Identical pincode is trivially the same city (Zone A) regardless of
+  // whether we have lat/lng data for it — no need to consult pincode_master.
+  if (originPincode === destinationPincode) {
+    return { zoneCode: "A", source: "computed" };
+  }
+
   const { data, error } = await supabase
     .from("pincode_master")
     .select("pincode, city, state, lat, lng, is_metro")
