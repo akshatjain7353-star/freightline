@@ -27,7 +27,7 @@ intake paths this phase.
 
 ### 2. Node.js and git
 
-This machine didn't have Node.js/npm or git installed when this was built, so none of the code below has been run yet. Install:
+Already installed on this machine (Node v24 LTS, git). Both `backend/` and `frontend/` have had `npm install` run and type-check/build clean. If setting up on a different machine:
 
 ```bash
 winget install OpenJS.NodeJS.LTS
@@ -70,7 +70,7 @@ Frontend runs at `http://localhost:5173`, backend at `http://localhost:8080`.
 
 Create two Railway services from this repo, one rooted at `backend/` and one at `frontend/`. Railway auto-detects Node via `package.json` (`npm run build` then `npm start` for the backend; `npm run build` then `npm start` — a Vite preview server — for the frontend). Set the same environment variables as above in each service's Railway settings, plus `PORT` if Railway doesn't inject it automatically for the frontend preview server.
 
-## Manual test checklist (do this after setup, since none of it has been run yet)
+## Manual test checklist (do this after Supabase/Delhivery setup — the code itself already builds and type-checks, but hasn't been run against live data yet)
 
 1. Sign in at `/login` with the Supabase Auth user you created.
 2. **Rate Calculator**: quote `110001` → `400001` (both seeded, same-metro-list, real distance) — confirm a quote returns with a zone and a total cost, and check whether it came from the live API or the fallback rate card.

@@ -103,9 +103,9 @@ export function RateCalculator() {
             </div>
           )}
           {quotes?.map((q, i) => (
-            <div key={q.carrierCode} className="bg-surface border border-border rounded p-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
+            <div key={q.carrierCode} className="bg-surface border border-border rounded p-4 flex items-center justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-primary">{q.carrierName}</span>
                   {i === 0 && (
                     <span className="text-xs bg-success/15 text-success border border-success/40 rounded-full px-2 py-0.5">
@@ -122,7 +122,7 @@ export function RateCalculator() {
                   {q.source === "carrier_api" ? "live API quote" : "fallback rate card"}
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="text-lg font-semibold tabular-num text-primary">
                   ₹{q.totalCostRupees.toFixed(2)}
                 </div>
