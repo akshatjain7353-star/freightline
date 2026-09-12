@@ -22,6 +22,8 @@ import { settlementsRouter } from "./routes/settlements.js";
 import { dtoRequestsRouter } from "./routes/dto-requests.js";
 import { clientApiKeysRouter } from "./routes/client-api-keys.js";
 import { externalDtoRequestsRouter } from "./routes/external-dto-requests.js";
+import { unicommerceShipperRouter } from "./routes/unicommerce-shipper.js";
+import { unicommerceCredentialsRouter } from "./routes/unicommerce-credentials.js";
 import { startTrackingPoller } from "./jobs/tracking-poller.js";
 
 const app = express();
@@ -53,10 +55,16 @@ app.use("/api", requireAuth, clientLedgerRouter);
 app.use("/api", requireAuth, settlementsRouter);
 app.use("/api", requireAuth, dtoRequestsRouter);
 app.use("/api", requireAuth, clientApiKeysRouter);
+app.use("/api", requireAuth, unicommerceCredentialsRouter);
 
 // Client-facing surface: authenticated by a per-client API key
 // (client-api-auth.ts), never an internal ops Supabase session.
 app.use("/external/v1", requireClientApiKey, externalDtoRequestsRouter);
+
+// Unicommerce shipper (courier-partner) surface: Uniware calls this
+// directly, authenticated per-route by requireUnicommerceToken (not here at
+// the router level, since /authToken itself must stay open).
+app.use("/unicommerce", unicommerceShipperRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled error:", err);

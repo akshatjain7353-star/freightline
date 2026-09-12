@@ -5,6 +5,8 @@ import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
 import { calculateClientBilledAmount } from "../rate-engine/client-rate-engine.js";
 import type { Dimensions, PaymentMode } from "../lib/types.js";
 
+export type ShipmentSource = "manual" | "bulk_upload" | "unicommerce";
+
 export interface CreateShipmentInput {
   orderId: string;
   clientId: string;
@@ -18,6 +20,7 @@ export interface CreateShipmentInput {
   dimensions: Dimensions;
   paymentMode: PaymentMode;
   shipmentValueRupees: number;
+  source?: ShipmentSource;
 }
 
 export class NonServiceableError extends Error {
@@ -113,6 +116,7 @@ async function doBookAndCreateShipment(input: CreateShipmentInput) {
       zone_source: quote.zone.source,
       payment_mode: input.paymentMode,
       status: "pending",
+      source: input.source ?? "manual",
       rate_card_id: quote.rateCardId,
       cost_rupees: quote.totalCostRupees,
       cod_charge_rupees: quote.codChargeRupees,

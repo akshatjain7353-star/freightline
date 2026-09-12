@@ -22,6 +22,7 @@ import { VendorReconciliation } from "./pages/admin/VendorReconciliation";
 import { CreateReversePickup } from "./pages/CreateReversePickup";
 import { DtoRequests } from "./pages/DtoRequests";
 import { ClientApiKeys } from "./pages/admin/ClientApiKeys";
+import { UnicommerceCredentials } from "./pages/admin/UnicommerceCredentials";
 
 const queryClient = new QueryClient();
 
@@ -181,6 +182,14 @@ export function App() {
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <ClientApiKeys />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/unicommerce-credentials"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UnicommerceCredentials />
                 </ProtectedRoute>
               }
             />

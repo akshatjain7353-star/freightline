@@ -47,7 +47,7 @@ bulkUploadRouter.post("/bulk-upload", async (req, res) => {
   // of concurrent booking calls from one bulk upload.
   for (const row of parsed.data.rows) {
     try {
-      const { shipment } = await bookAndCreateShipment(row);
+      const { shipment } = await bookAndCreateShipment({ ...row, source: "bulk_upload" });
       results.push({ orderId: row.orderId, success: true, awb: shipment.awb });
     } catch (err) {
       let message = (err as Error).message;

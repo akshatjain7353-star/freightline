@@ -37,6 +37,7 @@ const NAV_ITEMS: { to: string; label: string; icon: string; allowedRoles?: AppRo
   },
   { to: "/admin/client-ledger", label: "Client Ledger", icon: "𝓛", allowedRoles: ["admin", "accounts_ops"] },
   { to: "/admin/client-api-keys", label: "API Keys", icon: "🔑", allowedRoles: ["admin"] },
+  { to: "/admin/unicommerce-credentials", label: "Unicommerce Credentials", icon: "🔗", allowedRoles: ["admin"] },
 ];
 
 export function Sidebar() {

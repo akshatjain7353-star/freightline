@@ -444,3 +444,22 @@ export function generateClientApiKey(clientId: string, label: string) {
 export function revokeClientApiKey(keyId: string) {
   return postJson(`/api/api-keys/${keyId}/revoke`, {});
 }
+
+export interface UnicommerceCredential {
+  id: string;
+  username: string;
+  label: string;
+  active: boolean;
+  created_at: string;
+}
+
+export function fetchUnicommerceCredentials(clientId: string) {
+  return getJson<{ credentials: UnicommerceCredential[] }>(`/api/clients/${clientId}/unicommerce-credentials`);
+}
+
+export function issueUnicommerceCredentials(clientId: string, label: string) {
+  return postJson<{ credential: UnicommerceCredential; username: string; password: string }>(
+    `/api/clients/${clientId}/unicommerce-credentials`,
+    { label },
+  );
+}
