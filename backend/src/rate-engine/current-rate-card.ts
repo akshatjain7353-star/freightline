@@ -3,6 +3,8 @@ import { supabase } from "../supabase/client.js";
 export interface CurrentRateCard {
   id: string;
   fuelSurchargePercent: number;
+  codChargePercent: number;
+  codChargeMinimumRupees: number;
 }
 
 /**
@@ -22,12 +24,17 @@ export async function getCurrentRateCard(carrierCode: string): Promise<CurrentRa
 
   const { data: rateCard, error: rateCardError } = await supabase
     .from("current_rate_cards")
-    .select("id, fuel_surcharge_percent")
+    .select("id, fuel_surcharge_percent, cod_charge_percent, cod_charge_minimum_rupees")
     .eq("carrier_id", carrier.id)
     .single();
   if (rateCardError || !rateCard) {
     throw new Error(`No current rate card found for carrier "${carrierCode}"`);
   }
 
-  return { id: rateCard.id, fuelSurchargePercent: Number(rateCard.fuel_surcharge_percent) };
+  return {
+    id: rateCard.id,
+    fuelSurchargePercent: Number(rateCard.fuel_surcharge_percent),
+    codChargePercent: Number(rateCard.cod_charge_percent),
+    codChargeMinimumRupees: Number(rateCard.cod_charge_minimum_rupees),
+  };
 }

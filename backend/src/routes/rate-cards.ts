@@ -29,6 +29,8 @@ const newVersionSchema = z.object({
   carrierCode: z.string().min(1).default("delhivery"),
   name: z.string().min(1),
   fuelSurchargePercent: z.number().nonnegative(),
+  codChargePercent: z.number().nonnegative(),
+  codChargeMinimumRupees: z.number().nonnegative(),
   effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "effectiveFrom must be YYYY-MM-DD"),
   slabPrices: z
     .array(
@@ -36,6 +38,7 @@ const newVersionSchema = z.object({
         slabKey: z.enum(SLAB_KEYS),
         zoneCode: z.string().min(1),
         priceRupees: z.number().nonnegative(),
+        rateType: z.enum(["forward", "dto"]),
       }),
     )
     .min(1),

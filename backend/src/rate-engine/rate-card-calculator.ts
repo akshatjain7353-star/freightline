@@ -10,18 +10,28 @@ export type SlabKey =
   | "additional_1kg_5000_to_10000"
   | "additional_1kg_beyond_10000";
 
+export type RateType = "forward" | "dto";
+
 type SlabPrices = Record<SlabKey, number>;
 
-async function loadSlabPrices(rateCardId: string, zoneCode: ZoneCode): Promise<SlabPrices> {
+/**
+ * rateType defaults to "forward" - the original DL rate card. DTO (customer-
+ * initiated return) has its own distinct slab prices, added alongside the
+ * forward ones in the same table (0021_dto_rates_and_cod_charge_fields.sql).
+ * RTO deliberately keeps using "forward" - it's a status flip, not a
+ * separate priced trip.
+ */
+async function loadSlabPrices(rateCardId: string, zoneCode: ZoneCode, rateType: RateType = "forward"): Promise<SlabPrices> {
   const { data, error } = await supabase
     .from("rate_card_slab_prices")
     .select("slab_key, price_rupees")
     .eq("rate_card_id", rateCardId)
-    .eq("zone_code", zoneCode);
+    .eq("zone_code", zoneCode)
+    .eq("rate_type", rateType);
 
   if (error) throw error;
   if (!data || data.length === 0) {
-    throw new Error(`No rate card prices found for rate_card_id=${rateCardId} zone=${zoneCode}`);
+    throw new Error(`No ${rateType} rate card prices found for rate_card_id=${rateCardId} zone=${zoneCode}`);
   }
 
   const prices = {} as SlabPrices;
@@ -58,9 +68,13 @@ export function calculateSlabPriceRupees(chargeableWeightGrams: number, prices: 
   return prices.flat_upto_10000 + kgAbove10 * prices.additional_1kg_beyond_10000;
 }
 
-/** COD charge = 1% of shipment value or ₹20, whichever is higher. */
-export function calculateCodChargeRupees(shipmentValueRupees: number): number {
-  return Math.max(shipmentValueRupees * 0.01, 20);
+/** COD charge = codChargePercent of shipment value or codChargeMinimumRupees, whichever is higher - both come from the rate card in effect, not hardcoded. */
+export function calculateCodChargeRupees(
+  shipmentValueRupees: number,
+  codChargePercent: number,
+  codChargeMinimumRupees: number,
+): number {
+  return Math.max(shipmentValueRupees * (codChargePercent / 100), codChargeMinimumRupees);
 }
 
 export interface FallbackRateResult {
@@ -82,11 +96,17 @@ export async function calculateFallbackRate(params: {
   paymentMode: PaymentMode;
   shipmentValueRupees: number;
   fuelSurchargePercent: number;
+  codChargePercent: number;
+  codChargeMinimumRupees: number;
+  rateType?: RateType;
 }): Promise<FallbackRateResult> {
-  const prices = await loadSlabPrices(params.rateCardId, params.zoneCode);
+  const prices = await loadSlabPrices(params.rateCardId, params.zoneCode, params.rateType);
   const baseCostRupees = calculateSlabPriceRupees(params.chargeableWeightGrams, prices);
   const withFuelSurcharge = baseCostRupees * (1 + params.fuelSurchargePercent / 100);
-  const codChargeRupees = params.paymentMode === "COD" ? calculateCodChargeRupees(params.shipmentValueRupees) : 0;
+  const codChargeRupees =
+    params.paymentMode === "COD"
+      ? calculateCodChargeRupees(params.shipmentValueRupees, params.codChargePercent, params.codChargeMinimumRupees)
+      : 0;
 
   return {
     baseCostRupees: withFuelSurcharge,

@@ -110,6 +110,8 @@ export interface CarrierAdapter {
     dimensions: Dimensions;
     paymentMode: PaymentMode;
     shipmentValueRupees: number;
+    /** Defaults to "forward". Reverse pickups (DTO) price against a distinct slab table. */
+    rateType?: "forward" | "dto";
   }): Promise<RateQuote>;
   checkServiceability(pincode: string): Promise<ServiceabilityResult>;
   createShipment(request: BookingRequest): Promise<BookingResult>;

@@ -12,6 +12,7 @@ interface GetRateQuoteParams {
   dimensions: Dimensions;
   paymentMode: PaymentMode;
   shipmentValueRupees: number;
+  rateType?: "forward" | "dto";
   /** Force the manual rate-card fallback instead of calling the live API (offline estimation). */
   forceFallback?: boolean;
 }
@@ -59,8 +60,15 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
   const chargeableWeightGrams = calculateChargeableWeightGrams(params.weightGrams, params.dimensions);
   const zone = await resolveZone(params.originPincode, params.destinationPincode);
   const currentRateCard = await getCurrentRateCard("delhivery");
+  const rateType = params.rateType ?? "forward";
 
-  if (!params.forceFallback) {
+  // Delhivery's live rate API has no concept of a DTO/reverse-pickup quote -
+  // calling it for a DTO would just return a forward-priced quote for
+  // whichever pincodes are passed, mislabeled as a DTO rate. DTO always uses
+  // our own separately-negotiated slab table below instead.
+  const skipLiveApi = params.forceFallback || rateType === "dto";
+
+  if (!skipLiveApi) {
     try {
       const totalAmount = await fetchLiveQuote({
         chargeableWeightGrams,
@@ -70,7 +78,13 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
         dimensions: params.dimensions,
       });
       const codChargeRupees =
-        params.paymentMode === "COD" ? calculateCodChargeRupees(params.shipmentValueRupees) : 0;
+        params.paymentMode === "COD"
+          ? calculateCodChargeRupees(
+              params.shipmentValueRupees,
+              currentRateCard.codChargePercent,
+              currentRateCard.codChargeMinimumRupees,
+            )
+          : 0;
 
       return {
         carrierCode: "delhivery",
@@ -91,10 +105,11 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
     }
   }
 
-  // Fuel surcharge comes from the current rate card row itself (editable via
-  // the rate-card admin routes/versioning flow), not a static env default —
-  // that way "change the surcharge" means "publish a new rate card version"
-  // and the change is captured in the same audited history as slab prices.
+  // Fuel surcharge and COD charge come from the current rate card row itself
+  // (editable via the rate-card admin routes/versioning flow), not static
+  // env defaults — that way "change the surcharge" means "publish a new
+  // rate card version" and the change is captured in the same audited
+  // history as slab prices.
   const fallback = await calculateFallbackRate({
     rateCardId: currentRateCard.id,
     zoneCode: zone.zoneCode,
@@ -102,6 +117,9 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
     paymentMode: params.paymentMode,
     shipmentValueRupees: params.shipmentValueRupees,
     fuelSurchargePercent: currentRateCard.fuelSurchargePercent,
+    codChargePercent: currentRateCard.codChargePercent,
+    codChargeMinimumRupees: currentRateCard.codChargeMinimumRupees,
+    rateType,
   });
 
   return {

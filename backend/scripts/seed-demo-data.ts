@@ -119,9 +119,12 @@ async function findOrCreateClient(name: string, email: string, isSeedIfCreated: 
 }
 
 async function ensureClientRateCard(client: DemoClient, delhiveryRateCardId: string) {
+  // Includes both rate_type rows (forward + dto) - both get the same
+  // client markup applied, matching the "identical DTO table + COD charge
+  // field addition applies to Client Rate Cards too" requirement.
   const { data: vendorSlabs, error } = await supabase
     .from("rate_card_slab_prices")
-    .select("slab_key, zone_code, price_rupees")
+    .select("slab_key, zone_code, price_rupees, rate_type")
     .eq("rate_card_id", delhiveryRateCardId);
   if (error || !vendorSlabs) throw error ?? new Error("Could not load Delhivery slab prices to base client cards on");
 
@@ -129,6 +132,7 @@ async function ensureClientRateCard(client: DemoClient, delhiveryRateCardId: str
     slabKey: s.slab_key as SlabKey,
     zoneCode: s.zone_code,
     priceRupees: Math.round(Number(s.price_rupees) * (1 + client.markupPercent / 100) * 100) / 100,
+    rateType: s.rate_type as "forward" | "dto",
   }));
 
   const rateCard = await createNewClientRateCardVersion(
@@ -136,6 +140,8 @@ async function ensureClientRateCard(client: DemoClient, delhiveryRateCardId: str
       clientId: client.id,
       name: "Seed demo rate card",
       fuelSurchargePercent: client.fuelSurchargePercent,
+      codChargePercent: 1,
+      codChargeMinimumRupees: 20,
       effectiveFrom: new Date().toISOString().slice(0, 10),
       slabPrices,
     },
@@ -179,6 +185,8 @@ async function computeVendorQuote(
     paymentMode,
     shipmentValueRupees,
     fuelSurchargePercent: currentRateCard.fuelSurchargePercent,
+    codChargePercent: currentRateCard.codChargePercent,
+    codChargeMinimumRupees: currentRateCard.codChargeMinimumRupees,
   });
   return { zone, chargeableWeightGrams, rateCardId: currentRateCard.id, ...fallback };
 }

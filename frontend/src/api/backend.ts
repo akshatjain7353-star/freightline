@@ -131,15 +131,19 @@ export type SlabKey =
   | "additional_1kg_5000_to_10000"
   | "additional_1kg_beyond_10000";
 
+export type RateType = "forward" | "dto";
+
 export interface RateCard {
   id: string;
   carrier_id: string;
   name: string;
   fuel_surcharge_percent: number;
+  cod_charge_percent: number;
+  cod_charge_minimum_rupees: number;
   effective_from: string;
   effective_to: string | null;
   active: boolean;
-  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number }[];
+  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number; rate_type: RateType }[];
 }
 
 export function fetchRateCards(carrierCode = "delhivery") {
@@ -150,8 +154,10 @@ export interface NewRateCardVersionInput {
   carrierCode: string;
   name: string;
   fuelSurchargePercent: number;
+  codChargePercent: number;
+  codChargeMinimumRupees: number;
   effectiveFrom: string;
-  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number }[];
+  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number; rateType: RateType }[];
 }
 
 export function submitRateCardVersion(input: NewRateCardVersionInput) {
@@ -163,10 +169,12 @@ export interface ClientRateCard {
   client_id: string;
   name: string;
   fuel_surcharge_percent: number;
+  cod_charge_percent: number;
+  cod_charge_minimum_rupees: number;
   effective_from: string;
   effective_to: string | null;
   active: boolean;
-  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number }[];
+  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number; rate_type: RateType }[];
 }
 
 export function fetchClientRateCards(clientId: string) {
@@ -177,8 +185,10 @@ export interface NewClientRateCardVersionInput {
   clientId: string;
   name: string;
   fuelSurchargePercent: number;
+  codChargePercent: number;
+  codChargeMinimumRupees: number;
   effectiveFrom: string;
-  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number }[];
+  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number; rateType: RateType }[];
 }
 
 export function submitClientRateCardVersion(input: NewClientRateCardVersionInput) {

@@ -5,6 +5,7 @@ import {
   fetchClientRateCards,
   submitClientRateCardVersion,
   type ClientRateCard,
+  type RateType,
   type SlabKey,
 } from "../../api/backend";
 
@@ -22,8 +23,17 @@ const SLABS: { key: SlabKey; label: string }[] = [
   { key: "additional_1kg_beyond_10000", label: "+1kg (beyond 10kg)" },
 ];
 
+const RATE_TYPE_TABS: { key: RateType; label: string }[] = [
+  { key: "forward", label: "Forward" },
+  { key: "dto", label: "DTO (Return)" },
+];
+
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function priceKey(rateType: RateType, slabKey: SlabKey, zoneCode: string): string {
+  return `${rateType}:${slabKey}:${zoneCode}`;
 }
 
 export function ClientRateCards() {
@@ -35,9 +45,12 @@ export function ClientRateCards() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<RateType>("forward");
 
   const [name, setName] = useState("Standard");
   const [fuelSurchargePercent, setFuelSurchargePercent] = useState("0");
+  const [codChargePercent, setCodChargePercent] = useState("1");
+  const [codChargeMinimumRupees, setCodChargeMinimumRupees] = useState("20");
   const [effectiveFrom, setEffectiveFrom] = useState(today());
   const [prices, setPrices] = useState<Record<string, string>>({});
 
@@ -51,9 +64,11 @@ export function ClientRateCards() {
         const current = res.rateCards.find((rc) => !rc.effective_to && rc.active) ?? res.rateCards[0];
         setName(current?.name ?? "Standard");
         setFuelSurchargePercent(String(current?.fuel_surcharge_percent ?? 0));
+        setCodChargePercent(String(current?.cod_charge_percent ?? 1));
+        setCodChargeMinimumRupees(String(current?.cod_charge_minimum_rupees ?? 20));
         const seeded: Record<string, string> = {};
         for (const sp of current?.slab_prices ?? []) {
-          seeded[`${sp.slab_key}:${sp.zone_code}`] = String(sp.price_rupees);
+          seeded[priceKey(sp.rate_type, sp.slab_key, sp.zone_code)] = String(sp.price_rupees);
         }
         setPrices(seeded);
       })
@@ -74,17 +89,22 @@ export function ClientRateCards() {
     setError(null);
     setSuccess(null);
     try {
-      const slabPrices = SLABS.flatMap(({ key }) =>
-        zoneCodes.map((zoneCode) => ({
-          slabKey: key,
-          zoneCode,
-          priceRupees: parseFloat(prices[`${key}:${zoneCode}`] ?? "0") || 0,
-        })),
+      const slabPrices = RATE_TYPE_TABS.flatMap(({ key: rateType }) =>
+        SLABS.flatMap(({ key: slabKey }) =>
+          zoneCodes.map((zoneCode) => ({
+            slabKey,
+            zoneCode,
+            rateType,
+            priceRupees: parseFloat(prices[priceKey(rateType, slabKey, zoneCode)] ?? "0") || 0,
+          })),
+        ),
       );
       await submitClientRateCardVersion({
         clientId,
         name,
         fuelSurchargePercent: parseFloat(fuelSurchargePercent) || 0,
+        codChargePercent: parseFloat(codChargePercent) || 0,
+        codChargeMinimumRupees: parseFloat(codChargeMinimumRupees) || 0,
         effectiveFrom,
         slabPrices,
       });
@@ -132,6 +152,7 @@ export function ClientRateCards() {
                     <tr>
                       <th className="text-left px-3 py-2">Name</th>
                       <th className="text-left px-3 py-2">Fuel surcharge</th>
+                      <th className="text-left px-3 py-2">COD charge</th>
                       <th className="text-left px-3 py-2">Effective from</th>
                       <th className="text-left px-3 py-2">Effective to</th>
                       <th className="text-left px-3 py-2">Status</th>
@@ -142,6 +163,9 @@ export function ClientRateCards() {
                       <tr key={rc.id} className="border-t border-border">
                         <td className="px-3 py-2">{rc.name}</td>
                         <td className="px-3 py-2 tabular-num">{rc.fuel_surcharge_percent}%</td>
+                        <td className="px-3 py-2 tabular-num">
+                          {rc.cod_charge_percent}% / ₹{rc.cod_charge_minimum_rupees} min
+                        </td>
                         <td className="px-3 py-2 font-mono text-xs">{rc.effective_from}</td>
                         <td className="px-3 py-2 font-mono text-xs">{rc.effective_to ?? "—"}</td>
                         <td className="px-3 py-2">
@@ -164,7 +188,7 @@ export function ClientRateCards() {
                 below. Prices are pre-filled from the current version; edit only what changed.
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div>
                   <label className={labelClass}>Name</label>
                   <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
@@ -181,14 +205,53 @@ export function ClientRateCards() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Effective from</label>
+                  <label className={labelClass}>COD charge (%)</label>
                   <input
-                    type="date"
-                    value={effectiveFrom}
-                    onChange={(e) => setEffectiveFrom(e.target.value)}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={codChargePercent}
+                    onChange={(e) => setCodChargePercent(e.target.value)}
                     className={inputClass}
                   />
                 </div>
+                <div>
+                  <label className={labelClass}>COD charge minimum (₹)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={codChargeMinimumRupees}
+                    onChange={(e) => setCodChargeMinimumRupees(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Effective from</label>
+                <input
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                  className={`${inputClass} max-w-xs`}
+                />
+              </div>
+
+              <div className="flex gap-2 border-b border-border">
+                {RATE_TYPE_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`text-sm px-3 py-2 border-b-2 -mb-px ${
+                      activeTab === tab.key
+                        ? "border-accent text-primary"
+                        : "border-transparent text-secondary hover:text-primary"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               <div className="overflow-auto border border-border rounded">
@@ -213,8 +276,10 @@ export function ClientRateCards() {
                               type="number"
                               step="0.01"
                               min="0"
-                              value={prices[`${key}:${zc}`] ?? ""}
-                              onChange={(e) => setPrices((p) => ({ ...p, [`${key}:${zc}`]: e.target.value }))}
+                              value={prices[priceKey(activeTab, key, zc)] ?? ""}
+                              onChange={(e) =>
+                                setPrices((p) => ({ ...p, [priceKey(activeTab, key, zc)]: e.target.value }))
+                              }
                               className={`${inputClass} w-24`}
                             />
                           </td>

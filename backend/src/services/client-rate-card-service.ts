@@ -1,29 +1,31 @@
 import { supabase } from "../supabase/client.js";
 import { writeAuditLog } from "./audit-log-service.js";
-import type { SlabKey } from "../rate-engine/rate-card-calculator.js";
+import type { RateType, SlabKey } from "../rate-engine/rate-card-calculator.js";
 
 export interface ClientRateCardWithSlabs {
   id: string;
   client_id: string;
   name: string;
   fuel_surcharge_percent: number;
+  cod_charge_percent: number;
+  cod_charge_minimum_rupees: number;
   effective_from: string;
   effective_to: string | null;
   active: boolean;
-  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number }[];
+  slab_prices: { slab_key: SlabKey; zone_code: string; price_rupees: number; rate_type: RateType }[];
 }
 
 export async function listClientRateCards(clientId: string): Promise<ClientRateCardWithSlabs[]> {
   const { data: rateCards, error } = await supabase
     .from("client_rate_cards")
-    .select("id, client_id, name, fuel_surcharge_percent, effective_from, effective_to, active")
+    .select("id, client_id, name, fuel_surcharge_percent, cod_charge_percent, cod_charge_minimum_rupees, effective_from, effective_to, active")
     .eq("client_id", clientId)
     .order("effective_from", { ascending: false });
   if (error) throw error;
 
   const { data: slabRows, error: slabError } = await supabase
     .from("client_rate_card_slab_prices")
-    .select("client_rate_card_id, slab_key, zone_code, price_rupees")
+    .select("client_rate_card_id, slab_key, zone_code, price_rupees, rate_type")
     .in("client_rate_card_id", (rateCards ?? []).map((rc) => rc.id));
   if (slabError) throw slabError;
 
@@ -31,7 +33,7 @@ export async function listClientRateCards(clientId: string): Promise<ClientRateC
     ...rc,
     slab_prices: (slabRows ?? [])
       .filter((s) => s.client_rate_card_id === rc.id)
-      .map(({ slab_key, zone_code, price_rupees }) => ({ slab_key, zone_code, price_rupees })),
+      .map(({ slab_key, zone_code, price_rupees, rate_type }) => ({ slab_key, zone_code, price_rupees, rate_type })),
   })) as ClientRateCardWithSlabs[];
 }
 
@@ -39,8 +41,10 @@ export interface NewClientRateCardVersionInput {
   clientId: string;
   name: string;
   fuelSurchargePercent: number;
+  codChargePercent: number;
+  codChargeMinimumRupees: number;
   effectiveFrom: string;
-  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number }[];
+  slabPrices: { slabKey: SlabKey; zoneCode: string; priceRupees: number; rateType: RateType }[];
 }
 
 /** Same close-old/open-new versioning pattern as rate-card-service.ts's createNewRateCardVersion. */
@@ -70,6 +74,8 @@ export async function createNewClientRateCardVersion(
       client_id: input.clientId,
       name: input.name,
       fuel_surcharge_percent: input.fuelSurchargePercent,
+      cod_charge_percent: input.codChargePercent,
+      cod_charge_minimum_rupees: input.codChargeMinimumRupees,
       effective_from: input.effectiveFrom,
       active: true,
     })
@@ -83,6 +89,7 @@ export async function createNewClientRateCardVersion(
       slab_key: s.slabKey,
       zone_code: s.zoneCode,
       price_rupees: s.priceRupees,
+      rate_type: s.rateType,
     })),
   );
   if (slabError) throw slabError;

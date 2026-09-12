@@ -110,6 +110,7 @@ export async function bookReversePickup(params: BookReversePickupParams, actorId
     dimensions: params.dimensions,
     paymentMode: "Prepaid",
     shipmentValueRupees: params.shipmentValueRupees,
+    rateType: "dto",
   });
 
   const booking = await adapter.scheduleReversePickup({

@@ -31,7 +31,7 @@ async function computeExpectedAmount(shipment: {
 
   const { data: rateCard } = await supabase
     .from("rate_cards")
-    .select("fuel_surcharge_percent")
+    .select("fuel_surcharge_percent, cod_charge_percent, cod_charge_minimum_rupees")
     .eq("id", shipment.rate_card_id)
     .maybeSingle();
   if (!rateCard) return null;
@@ -46,6 +46,8 @@ async function computeExpectedAmount(shipment: {
       paymentMode: shipment.payment_mode,
       shipmentValueRupees: shipment.shipment_value_rupees ?? 0,
       fuelSurchargePercent: Number(rateCard.fuel_surcharge_percent),
+      codChargePercent: Number(rateCard.cod_charge_percent),
+      codChargeMinimumRupees: Number(rateCard.cod_charge_minimum_rupees),
     });
     return fallback.totalCostRupees;
   } catch {
