@@ -1,4 +1,4 @@
-import type { Dimensions, PaymentMode, RateQuote, SettlementMode, Shipment } from "../lib/types";
+import type { DashboardKpis, DashboardTrend, Dimensions, PaymentMode, RateQuote, SettlementMode, Shipment } from "../lib/types";
 import { getAccessToken } from "../lib/supabase";
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL;
@@ -233,6 +233,14 @@ export function fetchCashReconciliation(filters: CashReconciliationFilters, page
   return getJson<{ rows: CashReconciliationRow[]; totalCount: number }>(
     `/api/cash-reconciliation?${params.toString()}`,
   );
+}
+
+export function fetchDashboardKpis() {
+  return getJson<DashboardKpis>("/api/dashboard/kpis");
+}
+
+export function fetchDashboardTrend() {
+  return getJson<DashboardTrend>("/api/dashboard/trend");
 }
 
 export function recordVendorWeight(shipmentId: string, vendorChargedWeightGrams: number) {

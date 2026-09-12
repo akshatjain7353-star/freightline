@@ -4,8 +4,10 @@ import { writeLedgerEntry } from "./client-ledger-service.js";
 
 // Placeholder — confirm the real applicable GST rate (and whether it
 // differs for logistics services) with whoever handles Time Bound's filing
-// before invoices go out for real.
-const GST_RATE_PERCENT = 18;
+// before invoices go out for real. Exported so the Dashboard's GST-inclusive
+// revenue figure (dashboard-service.ts) always matches what invoicing
+// actually charges, rather than risking a second hardcoded 18 drifting.
+export const GST_RATE_PERCENT = 18;
 
 export async function generateClientInvoice(
   clientId: string,

@@ -25,6 +25,7 @@ import { externalDtoRequestsRouter } from "./routes/external-dto-requests.js";
 import { unicommerceShipperRouter } from "./routes/unicommerce-shipper.js";
 import { unicommerceCredentialsRouter } from "./routes/unicommerce-credentials.js";
 import { importMappingsRouter } from "./routes/import-mappings.js";
+import { dashboardRouter } from "./routes/dashboard.js";
 import { startTrackingPoller } from "./jobs/tracking-poller.js";
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api", requireAuth, dtoRequestsRouter);
 app.use("/api", requireAuth, clientApiKeysRouter);
 app.use("/api", requireAuth, unicommerceCredentialsRouter);
 app.use("/api", requireAuth, importMappingsRouter);
+app.use("/api", requireAuth, dashboardRouter);
 
 // Client-facing surface: authenticated by a per-client API key
 // (client-api-auth.ts), never an internal ops Supabase session.

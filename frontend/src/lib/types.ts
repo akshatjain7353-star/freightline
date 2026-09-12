@@ -64,16 +64,23 @@ export interface Shipment {
 export interface DashboardKpis {
   total_shipments: number;
   revenue: number | null;
+  revenue_incl_gst: number | null;
   delivered_pct: number;
   ndr_pct: number;
   rto_pct: number;
   cod_share_pct: number;
+  in_transit_count: number;
+  not_picked_up_count: number;
 }
 
 export interface DashboardTrendPoint {
   day: string;
-  shipment_count: number;
-  revenue: number | null;
+  [clientBucketOrOther: string]: string | number;
+}
+
+export interface DashboardTrend {
+  points: DashboardTrendPoint[];
+  clientKeys: string[];
 }
 
 export interface CarrierDistributionPoint {

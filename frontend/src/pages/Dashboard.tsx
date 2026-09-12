@@ -19,9 +19,16 @@ export function Dashboard() {
 
   return (
     <AppLayout title="Dashboard">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
         <StatCard label="Total Shipments" value={kpisLoading ? "…" : String(kpis?.total_shipments ?? 0)} />
-        <StatCard label="Revenue" value={kpisLoading ? "…" : formatRupees(kpis?.revenue)} />
+        <StatCard label="Revenue (excl. GST)" value={kpisLoading ? "…" : formatRupees(kpis?.revenue)} />
+        <StatCard label="Revenue (incl. GST)" value={kpisLoading ? "…" : formatRupees(kpis?.revenue_incl_gst)} />
+        <StatCard label="In Transit" value={kpisLoading ? "…" : String(kpis?.in_transit_count ?? 0)} accent="info" />
+        <StatCard
+          label="Not Picked Up"
+          value={kpisLoading ? "…" : String(kpis?.not_picked_up_count ?? 0)}
+          accent="warning"
+        />
         <StatCard
           label="Delivered %"
           value={kpisLoading ? "…" : `${kpis?.delivered_pct ?? 0}%`}

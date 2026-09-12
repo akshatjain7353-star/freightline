@@ -1,22 +1,31 @@
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { DashboardTrendPoint } from "../../lib/types";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { DashboardTrend } from "../../lib/types";
 
-export function RevenueVolumeChart({ data }: { data: DashboardTrendPoint[] }) {
-  const chartData = data.map((d) => ({
-    day: new Date(d.day).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
-    revenue: d.revenue,
-    shipments: d.shipment_count,
+// Cycled across whichever top-N client keys are present; "Other" always
+// gets the last, muted color rather than competing for a bright one.
+const LINE_COLORS = [
+  "rgb(var(--accent))",
+  "rgb(var(--status-success))",
+  "rgb(var(--status-info))",
+  "rgb(var(--status-warning))",
+  "rgb(var(--status-danger))",
+];
+const OTHER_COLOR = "rgb(var(--text-muted))";
+
+export function RevenueVolumeChart({ data }: { data: DashboardTrend }) {
+  const chartData = data.points.map((point) => ({
+    ...point,
+    day: new Date(point.day).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
   }));
 
   return (
     <div className="bg-surface border border-border rounded p-4">
-      <h3 className="text-sm font-medium text-secondary mb-3">Revenue &amp; Volume — Last 14 Days</h3>
+      <h3 className="text-sm font-medium text-secondary mb-3">Revenue by Client — Last 14 Days</h3>
       <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border-color))" />
           <XAxis dataKey="day" stroke="rgb(var(--text-muted))" fontSize={11} />
-          <YAxis yAxisId="revenue" stroke="rgb(var(--text-muted))" fontSize={11} />
-          <YAxis yAxisId="shipments" orientation="right" stroke="rgb(var(--text-muted))" fontSize={11} />
+          <YAxis stroke="rgb(var(--text-muted))" fontSize={11} />
           <Tooltip
             contentStyle={{
               background: "rgb(var(--bg-surface2))",
@@ -26,24 +35,18 @@ export function RevenueVolumeChart({ data }: { data: DashboardTrendPoint[] }) {
             }}
             labelStyle={{ color: "rgb(var(--text-primary))" }}
           />
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            fill="rgb(var(--accent) / 0.15)"
-            stroke="rgb(var(--accent))"
-            name="Revenue (₹)"
-          />
-          <Line
-            yAxisId="shipments"
-            type="monotone"
-            dataKey="shipments"
-            stroke="rgb(var(--status-info))"
-            strokeWidth={2}
-            dot={false}
-            name="Shipments"
-          />
-        </ComposedChart>
+          {data.clientKeys.map((key, i) => (
+            <Line
+              key={key}
+              type="monotone"
+              dataKey={key}
+              stroke={key === "Other" ? OTHER_COLOR : LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={2}
+              dot={false}
+              name={key}
+            />
+          ))}
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
