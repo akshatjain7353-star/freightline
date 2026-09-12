@@ -15,6 +15,7 @@ const STATUS_OPTIONS = [
   { value: "delivered", label: "Delivered" },
   { value: "ndr", label: "NDR" },
   { value: "rto", label: "RTO" },
+  { value: "dto", label: "DTO" },
 ];
 
 const inputClass =
