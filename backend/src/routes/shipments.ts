@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
 import { bookAndCreateShipment, NonServiceableError } from "../services/shipment-service.js";
+import { maskCostFieldsForRole } from "../lib/mask-cost.js";
 
 const createShipmentSchema = z.object({
   orderId: z.string().min(1),
@@ -32,7 +33,7 @@ shipmentsRouter.post("/shipments", async (req, res) => {
 
   try {
     const result = await bookAndCreateShipment(parsed.data);
-    res.status(201).json(result);
+    res.status(201).json(maskCostFieldsForRole(result, req.user?.role));
   } catch (err) {
     if (err instanceof PincodeNotMappedError) {
       return res.status(422).json({ error: "pincode_not_mapped", message: err.message });

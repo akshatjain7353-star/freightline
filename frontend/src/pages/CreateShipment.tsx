@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
-import { createShipment } from "../api/backend";
+import { checkServiceability, createShipment } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
 import type { PaymentMode } from "../lib/types";
 
@@ -29,6 +29,26 @@ export function CreateShipment() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [serviceability, setServiceability] = useState<"idle" | "checking" | "serviceable" | "non_serviceable">(
+    "idle",
+  );
+
+  async function handlePincodeBlur() {
+    if (destinationPincode.length < 4) {
+      setServiceability("idle");
+      return;
+    }
+    setServiceability("checking");
+    try {
+      const result = await checkServiceability(destinationPincode, carrierCode);
+      setServiceability(result.serviceable ? "serviceable" : "non_serviceable");
+    } catch {
+      // Fail open on the pre-check itself — the hard backstop on the server
+      // (NonServiceableError) still catches this at actual booking time.
+      setServiceability("idle");
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -111,7 +131,21 @@ export function CreateShipment() {
           </div>
           <div>
             <label className={labelClass}>Destination pincode</label>
-            <input required value={destinationPincode} onChange={(e) => setDestinationPincode(e.target.value)} className={inputClass} />
+            <input
+              required
+              value={destinationPincode}
+              onChange={(e) => {
+                setDestinationPincode(e.target.value);
+                setServiceability("idle");
+              }}
+              onBlur={handlePincodeBlur}
+              className={inputClass}
+            />
+            {serviceability === "checking" && <div className="text-xs text-muted mt-1">Checking serviceability…</div>}
+            {serviceability === "serviceable" && <div className="text-xs text-success mt-1">Serviceable</div>}
+            {serviceability === "non_serviceable" && (
+              <div className="text-xs text-danger mt-1">Not serviceable by this carrier</div>
+            )}
           </div>
         </div>
 
@@ -153,7 +187,7 @@ export function CreateShipment() {
 
         <button
           type="submit"
-          disabled={submitting || !clientId}
+          disabled={submitting || !clientId || serviceability === "non_serviceable"}
           className="bg-accent text-accent-fg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 self-start px-6"
         >
           {submitting ? "Booking..." : "Book shipment"}

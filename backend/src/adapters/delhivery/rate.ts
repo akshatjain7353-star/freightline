@@ -2,10 +2,8 @@ import { delhiveryHttp } from "./client.js";
 import { resolveZone } from "../../rate-engine/zone-resolver.js";
 import { calculateChargeableWeightGrams } from "../../rate-engine/chargeable-weight.js";
 import { calculateFallbackRate, calculateCodChargeRupees } from "../../rate-engine/rate-card-calculator.js";
-import { env } from "../../config/env.js";
+import { getCurrentRateCard } from "../../rate-engine/current-rate-card.js";
 import type { Dimensions, PaymentMode, RateQuote } from "../../lib/types.js";
-
-const DELHIVERY_RATE_CARD_ID = "00000000-0000-0000-0000-000000000101";
 
 interface GetRateQuoteParams {
   originPincode: string;
@@ -60,6 +58,7 @@ async function fetchLiveQuote(params: {
 export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuote> {
   const chargeableWeightGrams = calculateChargeableWeightGrams(params.weightGrams, params.dimensions);
   const zone = await resolveZone(params.originPincode, params.destinationPincode);
+  const currentRateCard = await getCurrentRateCard("delhivery");
 
   if (!params.forceFallback) {
     try {
@@ -83,6 +82,7 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
         fuelSurchargePercentApplied: 0, // live API charges already include any applicable surcharge
         totalCostRupees: totalAmount + codChargeRupees,
         source: "carrier_api",
+        rateCardId: currentRateCard.id,
       };
     } catch (err) {
       // Fall through to the manual rate-card calculation below. Network
@@ -91,13 +91,17 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
     }
   }
 
+  // Fuel surcharge comes from the current rate card row itself (editable via
+  // the rate-card admin routes/versioning flow), not a static env default —
+  // that way "change the surcharge" means "publish a new rate card version"
+  // and the change is captured in the same audited history as slab prices.
   const fallback = await calculateFallbackRate({
-    rateCardId: DELHIVERY_RATE_CARD_ID,
+    rateCardId: currentRateCard.id,
     zoneCode: zone.zoneCode,
     chargeableWeightGrams,
     paymentMode: params.paymentMode,
     shipmentValueRupees: params.shipmentValueRupees,
-    fuelSurchargePercent: env.DEFAULT_FUEL_SURCHARGE_PERCENT,
+    fuelSurchargePercent: currentRateCard.fuelSurchargePercent,
   });
 
   return {
@@ -110,5 +114,6 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
     fuelSurchargePercentApplied: fallback.fuelSurchargePercentApplied,
     totalCostRupees: fallback.totalCostRupees,
     source: "fallback_rate_card",
+    rateCardId: currentRateCard.id,
   };
 }

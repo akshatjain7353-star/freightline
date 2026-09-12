@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import { AppLayout } from "../components/layout/AppLayout";
-import { bulkUploadShipments, type BulkUploadRowResult, type CreateShipmentInput } from "../api/backend";
+import {
+  bulkUploadShipments,
+  checkServiceabilityBulk,
+  type BulkUploadRowResult,
+  type CreateShipmentInput,
+} from "../api/backend";
 
 const EXPECTED_COLUMNS = [
   "orderId",
@@ -48,10 +53,14 @@ export function BulkUpload() {
   const [results, setResults] = useState<BulkUploadRowResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [checkingServiceability, setCheckingServiceability] = useState(false);
+  const [nonServiceablePincodes, setNonServiceablePincodes] = useState<Set<string>>(new Set());
+
   function handleFile(file: File) {
     setFileName(file.name);
     setResults(null);
     setError(null);
+    setNonServiceablePincodes(new Set());
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
@@ -61,6 +70,34 @@ export function BulkUpload() {
       error: (err) => setError(err.message),
     });
   }
+
+  // Pre-flight every parsed row's destination pincode before allowing
+  // upload, instead of only discovering non-serviceable ones after the fact
+  // in the per-row results.
+  useEffect(() => {
+    if (rows.length === 0) return;
+    let cancelled = false;
+    setCheckingServiceability(true);
+    const uniquePincodes = [...new Set(rows.map((r) => r.destinationPincode).filter(Boolean))];
+    checkServiceabilityBulk(uniquePincodes)
+      .then((response) => {
+        if (cancelled) return;
+        setNonServiceablePincodes(
+          new Set(response.results.filter((r) => !r.serviceable).map((r) => r.pincode)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setNonServiceablePincodes(new Set());
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingServiceability(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rows]);
+
+  const nonServiceableRowCount = rows.filter((r) => nonServiceablePincodes.has(r.destinationPincode)).length;
 
   async function handleUpload() {
     setUploading(true);
@@ -96,15 +133,26 @@ export function BulkUpload() {
         </div>
 
         {rows.length > 0 && !results && (
-          <div className="bg-surface border border-border rounded p-4 flex items-center justify-between">
-            <span className="text-sm text-secondary">{rows.length} rows parsed and ready to upload.</span>
-            <button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="bg-accent text-accent-fg rounded py-1.5 px-4 text-sm font-medium hover:opacity-90 disabled:opacity-50"
-            >
-              {uploading ? "Uploading..." : "Upload shipments"}
-            </button>
+          <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-secondary">
+                {rows.length} rows parsed and ready to upload.
+                {checkingServiceability && " Checking serviceability…"}
+              </span>
+              <button
+                onClick={handleUpload}
+                disabled={uploading || checkingServiceability}
+                className="bg-accent text-accent-fg rounded py-1.5 px-4 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "Upload shipments"}
+              </button>
+            </div>
+            {nonServiceableRowCount > 0 && (
+              <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                {nonServiceableRowCount} row(s) have a non-serviceable destination pincode ({[...nonServiceablePincodes].join(", ")}) —
+                these will fail booking. Fix them before uploading, or proceed and review the per-row results.
+              </div>
+            )}
           </div>
         )}
 

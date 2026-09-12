@@ -1,5 +1,6 @@
 import { supabase } from "../supabase/client.js";
 import { getCarrierAdapter } from "../adapters/registry.js";
+import { logException } from "../services/exception-log-service.js";
 import { env } from "../config/env.js";
 import type { TrackingUpdate } from "../lib/types.js";
 
@@ -29,6 +30,11 @@ async function pollCarrier(carrierCode: string, carrierId: string) {
 
   if (error) {
     console.error(`[tracking-poller] failed to load ${carrierCode} shipments:`, error.message);
+    await logException({
+      source: "tracking_poll",
+      carrierId,
+      errorMessage: `Failed to load ${carrierCode} shipments: ${error.message}`,
+    });
     return;
   }
   if (!shipments || shipments.length === 0) return;
@@ -41,6 +47,11 @@ async function pollCarrier(carrierCode: string, carrierId: string) {
     updates = await adapter.trackShipments(Array.from(awbToShipmentId.keys()));
   } catch (err) {
     console.error(`[tracking-poller] ${carrierCode} tracking call failed:`, (err as Error).message);
+    await logException({
+      source: "tracking_poll",
+      carrierId,
+      errorMessage: `${carrierCode} tracking call failed: ${(err as Error).message}`,
+    });
     return;
   }
 
@@ -58,7 +69,15 @@ async function pollCarrier(carrierCode: string, carrierId: string) {
       raw_carrier_payload: update.raw,
     });
 
-    await supabase.from("shipments").update({ status: mappedStatus }).eq("id", shipmentId);
+    await supabase
+      .from("shipments")
+      .update({
+        status: mappedStatus,
+        ...(update.vendorChargedWeightGrams !== undefined
+          ? { vendor_charged_weight: update.vendorChargedWeightGrams }
+          : {}),
+      })
+      .eq("id", shipmentId);
   }
 }
 

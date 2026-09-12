@@ -1,5 +1,8 @@
 import { supabase } from "../supabase/client.js";
 import { getCarrierAdapter } from "../adapters/registry.js";
+import { logException } from "./exception-log-service.js";
+import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
+import { calculateClientBilledAmount } from "../rate-engine/client-rate-engine.js";
 import type { Dimensions, PaymentMode } from "../lib/types.js";
 
 export interface CreateShipmentInput {
@@ -29,6 +32,25 @@ export class NonServiceableError extends Error {
  * serviceability check -> rate/zone resolution -> carrier booking -> DB insert.
  */
 export async function bookAndCreateShipment(input: CreateShipmentInput) {
+  try {
+    return await doBookAndCreateShipment(input);
+  } catch (err) {
+    // NonServiceableError/PincodeNotMappedError are expected validation
+    // failures already surfaced to the caller by the route handlers — only
+    // log genuinely unexpected failures (carrier API errors, DB errors) to
+    // the exceptions queue.
+    if (!(err instanceof NonServiceableError) && !(err instanceof PincodeNotMappedError)) {
+      await logException({
+        source: "booking",
+        errorMessage: (err as Error).message,
+        rawContext: { orderId: input.orderId, carrierCode: input.carrierCode },
+      });
+    }
+    throw err;
+  }
+}
+
+async function doBookAndCreateShipment(input: CreateShipmentInput) {
   const adapter = getCarrierAdapter(input.carrierCode);
 
   const serviceability = await adapter.checkServiceability(input.destinationPincode);
@@ -60,6 +82,17 @@ export async function bookAndCreateShipment(input: CreateShipmentInput) {
     throw new Error(`Carrier ${input.carrierCode} not found in carriers table`);
   }
 
+  // Sell-side pricing (client_billed_amount) is independent of the vendor
+  // quote above — null until the client has their own rate card, rather
+  // than falling back to a guessed number.
+  const clientBill = await calculateClientBilledAmount({
+    clientId: input.clientId,
+    zoneCode: quote.zone.zoneCode,
+    chargeableWeightGrams: quote.chargeableWeightGrams,
+    paymentMode: input.paymentMode,
+    shipmentValueRupees: input.shipmentValueRupees,
+  });
+
   const { data: shipment, error: insertError } = await supabase
     .from("shipments")
     .insert({
@@ -69,6 +102,8 @@ export async function bookAndCreateShipment(input: CreateShipmentInput) {
       carrier_id: carrier.id,
       origin_pincode: input.originPincode,
       destination_pincode: input.destinationPincode,
+      destination_address_line: input.addressLine,
+      destination_city: input.city,
       weight_grams: input.weightGrams,
       length_cm: input.dimensions.lengthCm,
       width_cm: input.dimensions.widthCm,
@@ -78,11 +113,15 @@ export async function bookAndCreateShipment(input: CreateShipmentInput) {
       zone_source: quote.zone.source,
       payment_mode: input.paymentMode,
       status: "pending",
+      rate_card_id: quote.rateCardId,
       cost_rupees: quote.totalCostRupees,
       cod_charge_rupees: quote.codChargeRupees,
       fuel_surcharge_percent_applied: quote.fuelSurchargePercentApplied,
       shipment_value_rupees: input.shipmentValueRupees,
       raw_booking_response: booking.raw,
+      client_rate_card_id: clientBill?.clientRateCardId ?? null,
+      client_billed_amount: clientBill?.clientBilledAmountRupees ?? null,
+      client_cod_charge_rupees: clientBill?.clientCodChargeRupees ?? 0,
     })
     .select()
     .single();

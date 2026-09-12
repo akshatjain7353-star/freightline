@@ -32,11 +32,18 @@ export async function trackShipments(awbs: string[]): Promise<TrackingUpdate[]> 
       const scans = shipment.Scans ?? [];
       const latestScan = scans[scans.length - 1]?.ScanDetail;
 
+      // Field name is unconfirmed against real Delhivery tracking payloads —
+      // same caution the codebase already applies to the zone-classification
+      // API and the rate API's `ss` param. Verify against sandbox before
+      // relying on this for real weight-discrepancy flags.
+      const chargedWeight = shipment.ChargedWeight ?? shipment.charged_weight;
+
       updates.push({
         awb: shipment.AWB,
         status: latestScan?.Status ?? shipment.Status?.Status ?? "unknown",
         eventTimestamp: latestScan?.ScanDateTime ?? shipment.Status?.StatusDateTime ?? new Date().toISOString(),
         location: latestScan?.ScannedLocation,
+        vendorChargedWeightGrams: typeof chargedWeight === "number" ? chargedWeight : undefined,
         raw: entry,
       });
     }

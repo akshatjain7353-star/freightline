@@ -6,6 +6,7 @@ const STATUS_STYLES: Record<ShipmentStatus, string> = {
   delivered: "bg-success/15 text-success border-success/40",
   ndr: "bg-warning/15 text-warning border-warning/40",
   rto: "bg-danger/15 text-danger border-danger/40",
+  dto: "bg-danger/15 text-danger border-danger/40",
 };
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
@@ -14,6 +15,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   delivered: "Delivered",
   ndr: "NDR",
   rto: "RTO",
+  dto: "DTO",
 };
 
 export function StatusPill({ status }: { status: ShipmentStatus }) {

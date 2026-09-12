@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { listCarrierAdapters } from "../adapters/registry.js";
 import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
+import { requireRole } from "../middleware/auth.js";
 
 const requestSchema = z.object({
   originPincode: z.string().min(4),
@@ -18,7 +19,10 @@ const requestSchema = z.object({
 
 export const rateCalculatorRouter = Router();
 
-rateCalculatorRouter.post("/rate-calculator", async (req, res) => {
+// The Rate Calculator is a pricing tool end to end — block it outright for
+// ops_only rather than masking numbers within it (spec Section 11: ops_only
+// gets "no pricing access", not "pricing access with numbers hidden").
+rateCalculatorRouter.post("/rate-calculator", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });

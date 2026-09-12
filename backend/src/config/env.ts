@@ -9,7 +9,6 @@ const envSchema = z.object({
   DELHIVERY_ENV: z.enum(["staging", "production"]).default("staging"),
   DELHIVERY_ZONE_API_PATH: z.string().optional(),
 
-  DEFAULT_FUEL_SURCHARGE_PERCENT: z.coerce.number().default(0),
   TRACKING_POLL_INTERVAL_MINUTES: z.coerce.number().positive().default(15),
 
   PORT: z.coerce.number().default(8080),

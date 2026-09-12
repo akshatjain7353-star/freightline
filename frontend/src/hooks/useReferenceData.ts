@@ -23,3 +23,34 @@ export function useCarriers() {
     },
   });
 }
+
+export function useOpenExceptionCount() {
+  return useQuery({
+    queryKey: ["open-exception-count"],
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from("exception_log")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
+export interface Zone {
+  zone_code: string;
+  zone_type: string;
+}
+
+export function useZones() {
+  return useQuery({
+    queryKey: ["zones"],
+    queryFn: async (): Promise<Zone[]> => {
+      const { data, error } = await supabase.from("zones").select("*").order("zone_code");
+      if (error) throw error;
+      return (data ?? []) as Zone[];
+    },
+  });
+}

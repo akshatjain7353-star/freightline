@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import type { Shipment } from "../../lib/types";
 import { StatusPill } from "./StatusPill";
 
@@ -23,6 +24,8 @@ function formatRupees(value: number | null): string {
 }
 
 export function ShipmentsTable({ shipments, isLoading }: { shipments: Shipment[]; isLoading: boolean }) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return <div className="text-sm text-muted py-8 text-center">Loading shipments...</div>;
   }
@@ -45,15 +48,19 @@ export function ShipmentsTable({ shipments, isLoading }: { shipments: Shipment[]
         </thead>
         <tbody>
           {shipments.map((s) => (
-            <tr key={s.id} className="border-b border-border hover:bg-surface2/60 transition-colors">
+            <tr
+              key={s.id}
+              onClick={() => navigate(`/shipments/${s.id}`)}
+              className="border-b border-border hover:bg-surface2/60 transition-colors cursor-pointer"
+            >
               <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{s.awb ?? "—"}</td>
               <td className="px-3 py-2 whitespace-nowrap">
-                <div className="text-primary">{s.clients?.name ?? "—"}</div>
+                <div className="text-primary">{s.client_name ?? "—"}</div>
                 <div className="text-xs text-muted font-mono">
                   {s.origin_pincode} → {s.destination_pincode}
                 </div>
               </td>
-              <td className="px-3 py-2 whitespace-nowrap">{s.carriers?.name ?? "—"}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{s.carrier_name ?? "—"}</td>
               <td className="px-3 py-2 whitespace-nowrap">
                 <span className="font-mono">{s.zone_code ?? "—"}</span>
                 {s.zone_source === "computed" && (

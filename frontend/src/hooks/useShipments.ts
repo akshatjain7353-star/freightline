@@ -16,8 +16,8 @@ export function useShipments(filters: ShipmentFilters) {
     queryKey: ["shipments", filters],
     queryFn: async (): Promise<Shipment[]> => {
       let query = supabase
-        .from("shipments")
-        .select("*, clients(id, name), carriers(id, name)")
+        .from("shipments_ops_view")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -33,6 +33,45 @@ export function useShipments(filters: ShipmentFilters) {
       }
 
       const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as unknown as Shipment[];
+    },
+  });
+}
+
+export function useShipment(id: string | undefined) {
+  return useQuery({
+    queryKey: ["shipment", id],
+    enabled: !!id,
+    queryFn: async (): Promise<Shipment> => {
+      const { data, error } = await supabase.from("shipments_ops_view").select("*").eq("id", id).single();
+      if (error) throw error;
+      return data as unknown as Shipment;
+    },
+  });
+}
+
+export function useRelatedShipments(id: string | undefined) {
+  return useQuery({
+    queryKey: ["related-shipments", id],
+    enabled: !!id,
+    queryFn: async (): Promise<Shipment[]> => {
+      const { data, error } = await supabase.from("shipments_ops_view").select("*").eq("related_shipment_id", id);
+      if (error) throw error;
+      return (data ?? []) as unknown as Shipment[];
+    },
+  });
+}
+
+export function useWeightDiscrepancies() {
+  return useQuery({
+    queryKey: ["weight-discrepancies"],
+    queryFn: async (): Promise<Shipment[]> => {
+      const { data, error } = await supabase
+        .from("shipments_ops_view")
+        .select("*")
+        .eq("weight_discrepancy_flagged", true)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Shipment[];
     },
