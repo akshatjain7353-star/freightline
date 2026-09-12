@@ -12,7 +12,12 @@ const NAV_ITEMS: { to: string; label: string; icon: string; allowedRoles?: AppRo
   { to: "/create-reverse-pickup", label: "Create Reverse Pickup", icon: "↩" },
   { to: "/dto-requests", label: "DTO Requests", icon: "⇄" },
   { to: "/weight-discrepancies", label: "Weight Discrepancies", icon: "⚖" },
-  { to: "/cash-reconciliation", label: "Cash Reconciliation", icon: "⇋" },
+  {
+    to: "/cash-reconciliation",
+    label: "Cash Reconciliation",
+    icon: "⇋",
+    allowedRoles: ["admin", "accounts_ops"],
+  },
   { to: "/ndr-queue", label: "NDR Queue", icon: "⚠" },
   { to: "/exceptions", label: "Exceptions", icon: "✕", badge: "exceptions" },
   { to: "/admin/rate-cards", label: "Rate Cards", icon: "§", allowedRoles: ["admin", "accounts_ops"] },

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Papa from "papaparse";
 import { AppLayout } from "../../components/layout/AppLayout";
+import { CsvColumnMapper, type RequiredField } from "../../components/common/CsvColumnMapper";
 import {
   fetchVendorInvoiceLines,
   reconcileVendorInvoice,
@@ -8,7 +9,11 @@ import {
   type VendorReconciliationResult,
 } from "../../api/backend";
 
-const EXPECTED_COLUMNS = ["awb", "vendorBilledAmountRupees"];
+const IMPORTER_KEY = "vendor-reconciliation";
+const REQUIRED_FIELDS: RequiredField[] = [
+  { key: "awb", label: "AWB" },
+  { key: "vendorBilledAmountRupees", label: "Vendor billed amount (₹)" },
+];
 
 interface ParsedRow {
   awb: string;
@@ -29,7 +34,10 @@ const STATUS_CLASSES: Record<VendorInvoiceLine["status"], string> = {
 };
 
 export function VendorReconciliation() {
+  const [rawRows, setRawRows] = useState<Record<string, string | undefined>[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [mapped, setMapped] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<VendorReconciliationResult | null>(null);
@@ -40,13 +48,27 @@ export function VendorReconciliation() {
     setFileName(file.name);
     setResult(null);
     setLines(null);
+    setMapped(false);
     setError(null);
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (parsed) => setRows(parsed.data.map(parseRow)),
+      complete: (parsed) => {
+        setRawRows(parsed.data);
+        setCsvHeaders(parsed.meta.fields ?? []);
+      },
       error: (err) => setError(err.message),
     });
+  }
+
+  function handleMappingConfirmed(mapping: Record<string, string>) {
+    const remapped = rawRows.map((raw) => {
+      const mappedRow: Record<string, string | undefined> = {};
+      for (const field of REQUIRED_FIELDS) mappedRow[field.key] = raw[mapping[field.key] ?? ""];
+      return mappedRow;
+    });
+    setRows(remapped.map(parseRow));
+    setMapped(true);
   }
 
   async function handleUpload() {
@@ -68,14 +90,10 @@ export function VendorReconciliation() {
     <AppLayout title="Vendor Reconciliation">
       <div className="max-w-3xl flex flex-col gap-4">
         <div className="bg-surface border border-border rounded p-4 text-sm text-secondary">
-          <p className="mb-2">
+          <p>
             Upload the vendor's invoice CSV to compare what they billed against the expected amount recomputed
             from the rate card version active at booking time (accounting for any recorded weight discrepancy).
           </p>
-          <p className="mb-2">CSV columns expected (header row required):</p>
-          <code className="block text-xs bg-surface2 rounded p-2 font-mono overflow-x-auto whitespace-pre">
-            {EXPECTED_COLUMNS.join(",")}
-          </code>
         </div>
 
         <div className="bg-surface border border-border rounded p-4 flex items-center gap-4">
@@ -88,7 +106,16 @@ export function VendorReconciliation() {
           {fileName && <span className="text-xs text-muted">{fileName}</span>}
         </div>
 
-        {rows.length > 0 && !result && (
+        {csvHeaders.length > 0 && !mapped && (
+          <CsvColumnMapper
+            importerKey={IMPORTER_KEY}
+            csvHeaders={csvHeaders}
+            requiredFields={REQUIRED_FIELDS}
+            onConfirm={handleMappingConfirmed}
+          />
+        )}
+
+        {mapped && rows.length > 0 && !result && (
           <div className="bg-surface border border-border rounded p-4 flex items-center justify-between">
             <span className="text-sm text-secondary">{rows.length} rows parsed and ready to reconcile.</span>
             <button

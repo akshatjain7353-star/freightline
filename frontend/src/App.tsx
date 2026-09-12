@@ -92,7 +92,7 @@ export function App() {
             <Route
               path="/cash-reconciliation"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
                   <CashReconciliation />
                 </ProtectedRoute>
               }

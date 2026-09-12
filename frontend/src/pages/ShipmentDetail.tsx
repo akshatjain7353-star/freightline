@@ -94,6 +94,19 @@ export function ShipmentDetail() {
     );
   }
 
+  // Pickup is only relevant before the carrier has collected the package;
+  // the label stays useful while the shipment is still open, but not once
+  // it's reached a resolved end state.
+  const canSchedulePickup = shipment.status === "pending";
+  const pickupDisabledReason = canSchedulePickup ? null : "Already picked up";
+  const OPEN_STATUSES = ["pending", "in_transit", "ndr"];
+  const canViewLabel = OPEN_STATUSES.includes(shipment.status);
+  const labelDisabledReason = canViewLabel
+    ? null
+    : shipment.status === "delivered"
+      ? "Shipment already delivered"
+      : "Shipment already resolved";
+
   return (
     <AppLayout title={`Shipment ${shipment.awb ?? shipment.order_id}`}>
       <div className="flex flex-col gap-6 max-w-3xl">
@@ -144,18 +157,22 @@ export function ShipmentDetail() {
             <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className={inputClass} />
             <button
               onClick={handleSchedulePickup}
-              disabled={busy === "pickup" || !shipment.awb}
+              disabled={busy === "pickup" || !shipment.awb || !canSchedulePickup}
+              title={pickupDisabledReason ?? undefined}
               className="text-sm px-4 py-1.5 rounded bg-accent text-accent-fg hover:opacity-90 disabled:opacity-50"
             >
               {busy === "pickup" ? "Scheduling..." : "Schedule Pickup"}
             </button>
+            {pickupDisabledReason && <span className="text-xs text-muted">{pickupDisabledReason}</span>}
             <button
               onClick={handleViewLabel}
-              disabled={busy === "label" || !shipment.awb}
+              disabled={busy === "label" || !shipment.awb || !canViewLabel}
+              title={labelDisabledReason ?? undefined}
               className="text-sm px-4 py-1.5 rounded border border-border text-secondary hover:text-primary hover:border-accent disabled:opacity-50"
             >
               {busy === "label" ? "Loading..." : "View / Print Label"}
             </button>
+            {labelDisabledReason && <span className="text-xs text-muted">{labelDisabledReason}</span>}
           </div>
         </div>
 

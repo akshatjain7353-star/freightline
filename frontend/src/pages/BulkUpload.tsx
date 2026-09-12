@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import { AppLayout } from "../components/layout/AppLayout";
+import { CsvColumnMapper, type RequiredField } from "../components/common/CsvColumnMapper";
 import {
   bulkUploadShipments,
   checkServiceabilityBulk,
@@ -8,21 +9,22 @@ import {
   type CreateShipmentInput,
 } from "../api/backend";
 
-const EXPECTED_COLUMNS = [
-  "orderId",
-  "clientId",
-  "clientName",
-  "addressLine",
-  "city",
-  "carrierCode",
-  "originPincode",
-  "destinationPincode",
-  "weightGrams",
-  "lengthCm",
-  "widthCm",
-  "heightCm",
-  "paymentMode",
-  "shipmentValueRupees",
+const IMPORTER_KEY = "bulk-upload";
+const REQUIRED_FIELDS: RequiredField[] = [
+  { key: "orderId", label: "Order ID" },
+  { key: "clientId", label: "Client ID" },
+  { key: "clientName", label: "Client name" },
+  { key: "addressLine", label: "Delivery address" },
+  { key: "city", label: "City" },
+  { key: "carrierCode", label: "Carrier code" },
+  { key: "originPincode", label: "Origin pincode" },
+  { key: "destinationPincode", label: "Destination pincode" },
+  { key: "weightGrams", label: "Weight (grams)" },
+  { key: "lengthCm", label: "Length (cm)" },
+  { key: "widthCm", label: "Width (cm)" },
+  { key: "heightCm", label: "Height (cm)" },
+  { key: "paymentMode", label: "Payment mode (COD/Prepaid)" },
+  { key: "shipmentValueRupees", label: "Shipment value (₹)" },
 ];
 
 function parseRow(raw: Record<string, string | undefined>): CreateShipmentInput {
@@ -47,6 +49,9 @@ function parseRow(raw: Record<string, string | undefined>): CreateShipmentInput 
 }
 
 export function BulkUpload() {
+  const [rawRows, setRawRows] = useState<Record<string, string | undefined>[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [mapped, setMapped] = useState(false);
   const [rows, setRows] = useState<CreateShipmentInput[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -60,15 +65,28 @@ export function BulkUpload() {
     setFileName(file.name);
     setResults(null);
     setError(null);
+    setMapped(false);
+    setRows([]);
     setNonServiceablePincodes(new Set());
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        setRows(result.data.map(parseRow));
+        setRawRows(result.data);
+        setCsvHeaders(result.meta.fields ?? []);
       },
       error: (err) => setError(err.message),
     });
+  }
+
+  function handleMappingConfirmed(mapping: Record<string, string>) {
+    const remapped = rawRows.map((raw) => {
+      const mappedRow: Record<string, string | undefined> = {};
+      for (const field of REQUIRED_FIELDS) mappedRow[field.key] = raw[mapping[field.key] ?? ""];
+      return mappedRow;
+    });
+    setRows(remapped.map(parseRow));
+    setMapped(true);
   }
 
   // Pre-flight every parsed row's destination pincode before allowing
@@ -115,13 +133,6 @@ export function BulkUpload() {
   return (
     <AppLayout title="Bulk Upload">
       <div className="max-w-3xl flex flex-col gap-4">
-        <div className="bg-surface border border-border rounded p-4 text-sm text-secondary">
-          <p className="mb-2">CSV columns expected (header row required):</p>
-          <code className="block text-xs bg-surface2 rounded p-2 font-mono overflow-x-auto whitespace-pre">
-            {EXPECTED_COLUMNS.join(",")}
-          </code>
-        </div>
-
         <div className="bg-surface border border-border rounded p-4 flex items-center gap-4">
           <input
             type="file"
@@ -132,7 +143,16 @@ export function BulkUpload() {
           {fileName && <span className="text-xs text-muted">{fileName}</span>}
         </div>
 
-        {rows.length > 0 && !results && (
+        {csvHeaders.length > 0 && !mapped && (
+          <CsvColumnMapper
+            importerKey={IMPORTER_KEY}
+            csvHeaders={csvHeaders}
+            requiredFields={REQUIRED_FIELDS}
+            onConfirm={handleMappingConfirmed}
+          />
+        )}
+
+        {mapped && rows.length > 0 && !results && (
           <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-secondary">

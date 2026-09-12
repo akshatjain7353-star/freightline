@@ -3,8 +3,34 @@ import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
 import { supabase } from "../supabase/client.js";
 import { writeAuditLog } from "../services/audit-log-service.js";
+import { getCashReconciliationRows } from "../services/cash-reconciliation-service.js";
 
 export const cashReconciliationRouter = Router();
+
+// Purely a money-reconciliation screen (invoice value, cash received,
+// COD flow) - gated the same as the PATCH action below, rather than open to
+// all authenticated like the operational list screens.
+cashReconciliationRouter.get("/cash-reconciliation", requireRole("admin", "accounts_ops"), async (req, res) => {
+  const page = Math.max(0, parseInt(String(req.query.page ?? "0"), 10) || 0);
+  const pageSize = Math.min(200, Math.max(1, parseInt(String(req.query.pageSize ?? "50"), 10) || 50));
+  try {
+    const result = await getCashReconciliationRows(
+      {
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        carrierId: typeof req.query.carrierId === "string" ? req.query.carrierId : undefined,
+        clientId: typeof req.query.clientId === "string" ? req.query.clientId : undefined,
+        dateFrom: typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined,
+        dateTo: typeof req.query.dateTo === "string" ? req.query.dateTo : undefined,
+        search: typeof req.query.search === "string" ? req.query.search : undefined,
+      },
+      page,
+      pageSize,
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "cash_reconciliation_fetch_failed", message: (err as Error).message });
+  }
+});
 
 const statusSchema = z.object({ status: z.enum(["pending", "collected", "remitted"]) });
 

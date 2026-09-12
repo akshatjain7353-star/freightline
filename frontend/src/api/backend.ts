@@ -44,6 +44,27 @@ async function patchJson<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.message ?? data?.error ?? `Request to ${path} failed (${response.status})`);
+  }
+  return data as T;
+}
+
+export function fetchImportMapping(importerKey: string) {
+  return getJson<{ mapping: Record<string, string> | null }>(`/api/import-mappings/${importerKey}`);
+}
+
+export function saveImportMapping(importerKey: string, mapping: Record<string, string>) {
+  return putJson<{ ok: true }>(`/api/import-mappings/${importerKey}`, { mapping });
+}
+
 export interface RateCalculatorInput {
   originPincode: string;
   destinationPincode: string;
@@ -166,6 +187,42 @@ export function submitClientRateCardVersion(input: NewClientRateCardVersionInput
 
 export function updateCodCollectionStatus(shipmentId: string, status: "pending" | "collected" | "remitted") {
   return patchJson(`/api/shipments/${shipmentId}/cod-collection-status`, { status });
+}
+
+export interface CashReconciliationRow {
+  id: string;
+  order_id: string;
+  awb: string | null;
+  client_id: string;
+  client_name: string | null;
+  payment_mode: PaymentMode;
+  status: string;
+  created_at: string;
+  invoice_value_rupees: number | null;
+  cash_received_status: "not_invoiced" | "pending" | "partial" | "paid";
+  cash_received_amount_rupees: number | null;
+  amount_charged_to_customer_rupees: number | null;
+  received_from_vendor: boolean | null;
+  given_to_client: boolean | null;
+}
+
+export interface CashReconciliationFilters {
+  status?: string;
+  carrierId?: string;
+  clientId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export function fetchCashReconciliation(filters: CashReconciliationFilters, page: number, pageSize: number) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  return getJson<{ rows: CashReconciliationRow[]; totalCount: number }>(
+    `/api/cash-reconciliation?${params.toString()}`,
+  );
 }
 
 export function recordVendorWeight(shipmentId: string, vendorChargedWeightGrams: number) {

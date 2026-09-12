@@ -1,71 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { Filters } from "../components/shipments/Filters";
-import { useShipments, type ShipmentFilters } from "../hooks/useShipments";
+import { Pagination } from "../components/common/Pagination";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
 import { useAuth } from "../lib/auth-context";
-import { updateCodCollectionStatus } from "../api/backend";
-import type { CodCollectionStatus } from "../lib/types";
+import {
+  fetchCashReconciliation,
+  updateCodCollectionStatus,
+  type CashReconciliationRow,
+} from "../api/backend";
+import type { ShipmentFilters } from "../hooks/useShipments";
+
+const PAGE_SIZE = 50;
 
 function formatRupees(value: number | null): string {
   if (value === null || value === undefined) return "—";
   return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const COD_STATUS_CLASSES: Record<CodCollectionStatus, string> = {
-  pending: "text-warning",
-  collected: "text-info",
-  remitted: "text-success",
+const CASH_STATUS_LABELS: Record<CashReconciliationRow["cash_received_status"], string> = {
+  not_invoiced: "Not invoiced",
+  pending: "Pending",
+  partial: "Partial",
+  paid: "Paid",
 };
+
+const CASH_STATUS_CLASSES: Record<CashReconciliationRow["cash_received_status"], string> = {
+  not_invoiced: "text-muted",
+  pending: "text-warning",
+  partial: "text-info",
+  paid: "text-success",
+};
+
+function BoolBadge({ value }: { value: boolean | null }) {
+  if (value === null) return <span className="text-muted">—</span>;
+  return value ? <span className="text-success">Yes</span> : <span className="text-warning">No</span>;
+}
 
 export function CashReconciliation() {
   const { role } = useAuth();
   const canEditCod = role === "admin" || role === "accounts_ops";
   const [filters, setFilters] = useState<ShipmentFilters>({});
-  const { data: shipments, isLoading, refetch } = useShipments(filters);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState<CashReconciliationRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyRow, setBusyRow] = useState<string | null>(null);
   const { data: carriers } = useCarriers();
   const { data: clients } = useClients();
-  const [busyRow, setBusyRow] = useState<string | null>(null);
 
-  async function handleCodStatus(shipmentId: string, status: CodCollectionStatus) {
+  function load() {
+    setIsLoading(true);
+    fetchCashReconciliation(filters, page, PAGE_SIZE)
+      .then((res) => {
+        setRows(res.rows);
+        setTotalCount(res.totalCount);
+      })
+      .finally(() => setIsLoading(false));
+  }
+
+  useEffect(load, [filters, page]);
+
+  function handleFiltersChange(next: ShipmentFilters) {
+    setFilters(next);
+    setPage(0);
+  }
+
+  async function handleCodStatus(shipmentId: string, status: "pending" | "collected" | "remitted") {
     setBusyRow(shipmentId);
     try {
       await updateCodCollectionStatus(shipmentId, status);
-      refetch();
+      load();
     } finally {
       setBusyRow(null);
     }
   }
 
-  const rows = shipments ?? [];
-  const totals = rows.reduce(
-    (acc, s) => ({
-      clientBilled: acc.clientBilled + (s.client_billed_amount ?? 0),
-      vendorCost: acc.vendorCost + (s.cost_rupees ?? 0),
-    }),
-    { clientBilled: 0, vendorCost: 0 },
-  );
-
   return (
     <AppLayout title="Cash Reconciliation">
-      <Filters filters={filters} onChange={setFilters} carriers={carriers ?? []} clients={clients ?? []} />
-
-      {!isLoading && rows.length > 0 && (
-        <div className="flex gap-4 mb-4 text-sm">
-          <div className="bg-surface border border-border rounded px-3 py-2">
-            <span className="text-xs text-muted block">Client charged (page total)</span>
-            <span className="tabular-num">{formatRupees(totals.clientBilled)}</span>
-          </div>
-          <div className="bg-surface border border-border rounded px-3 py-2">
-            <span className="text-xs text-muted block">Vendor paid (page total)</span>
-            <span className="tabular-num">{formatRupees(totals.vendorCost)}</span>
-          </div>
-          <div className="bg-surface border border-border rounded px-3 py-2">
-            <span className="text-xs text-muted block">Margin (page total)</span>
-            <span className="tabular-num">{formatRupees(totals.clientBilled - totals.vendorCost)}</span>
-          </div>
-        </div>
-      )}
+      <Filters filters={filters} onChange={handleFiltersChange} carriers={carriers ?? []} clients={clients ?? []} />
 
       {isLoading ? (
         <div className="text-sm text-muted py-8 text-center">Loading…</div>
@@ -81,57 +94,61 @@ export function CashReconciliation() {
                 <th className="text-left font-medium px-3 py-2 border-b border-border">Order</th>
                 <th className="text-left font-medium px-3 py-2 border-b border-border">Client</th>
                 <th className="text-left font-medium px-3 py-2 border-b border-border">Payment</th>
-                <th className="text-left font-medium px-3 py-2 border-b border-border">Client charged</th>
-                <th className="text-left font-medium px-3 py-2 border-b border-border">Vendor paid</th>
-                <th className="text-left font-medium px-3 py-2 border-b border-border">Margin</th>
-                <th className="text-left font-medium px-3 py-2 border-b border-border">COD status</th>
+                <th className="text-left font-medium px-3 py-2 border-b border-border">Invoice Value</th>
+                <th className="text-left font-medium px-3 py-2 border-b border-border">Cash Received</th>
+                <th className="text-left font-medium px-3 py-2 border-b border-border">Charged to Customer</th>
+                <th className="text-left font-medium px-3 py-2 border-b border-border">Received from Vendor</th>
+                <th className="text-left font-medium px-3 py-2 border-b border-border">Given to Client</th>
                 {canEditCod && <th className="text-left font-medium px-3 py-2 border-b border-border">Action</th>}
               </tr>
             </thead>
             <tbody>
-              {rows.map((s) => {
-                const margin =
-                  s.client_billed_amount !== null && s.cost_rupees !== null
-                    ? s.client_billed_amount - s.cost_rupees
-                    : null;
-                return (
-                  <tr key={s.id} className="border-b border-border">
-                    <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{s.order_id}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{s.client_name ?? "—"}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{s.payment_mode}</td>
-                    <td className="px-3 py-2 tabular-num whitespace-nowrap">{formatRupees(s.client_billed_amount)}</td>
-                    <td className="px-3 py-2 tabular-num whitespace-nowrap">{formatRupees(s.cost_rupees)}</td>
-                    <td className="px-3 py-2 tabular-num whitespace-nowrap">{formatRupees(margin)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap capitalize ${COD_STATUS_CLASSES[s.cod_collection_status]}`}>
-                      {s.payment_mode === "COD" ? s.cod_collection_status : "—"}
-                    </td>
-                    {canEditCod && (
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {s.payment_mode === "COD" && (
-                          <div className="flex gap-1">
-                            {(["pending", "collected", "remitted"] as const)
-                              .filter((st) => st !== s.cod_collection_status)
-                              .map((st) => (
-                                <button
-                                  key={st}
-                                  disabled={busyRow === s.id}
-                                  onClick={() => handleCodStatus(s.id, st)}
-                                  className="text-xs px-2 py-0.5 rounded border border-border text-secondary hover:text-primary hover:border-accent disabled:opacity-50 capitalize"
-                                >
-                                  {st}
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </td>
+              {rows.map((s) => (
+                <tr key={s.id} className="border-b border-border">
+                  <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{s.order_id}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{s.client_name ?? "—"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{s.payment_mode}</td>
+                  <td className="px-3 py-2 tabular-num whitespace-nowrap">{formatRupees(s.invoice_value_rupees)}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap ${CASH_STATUS_CLASSES[s.cash_received_status]}`}>
+                    {CASH_STATUS_LABELS[s.cash_received_status]}
+                    {s.cash_received_status === "partial" && s.cash_received_amount_rupees !== null && (
+                      <span className="text-muted"> ({formatRupees(s.cash_received_amount_rupees)})</span>
                     )}
-                  </tr>
-                );
-              })}
+                  </td>
+                  <td className="px-3 py-2 tabular-num whitespace-nowrap">
+                    {formatRupees(s.amount_charged_to_customer_rupees)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <BoolBadge value={s.received_from_vendor} />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <BoolBadge value={s.given_to_client} />
+                  </td>
+                  {canEditCod && (
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {s.payment_mode === "COD" && (
+                        <div className="flex gap-1">
+                          {(["pending", "collected", "remitted"] as const).map((st) => (
+                            <button
+                              key={st}
+                              disabled={busyRow === s.id}
+                              onClick={() => handleCodStatus(s.id, st)}
+                              className="text-xs px-2 py-0.5 rounded border border-border text-secondary hover:text-primary hover:border-accent disabled:opacity-50 capitalize"
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
+      {!isLoading && <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />}
     </AppLayout>
   );
 }

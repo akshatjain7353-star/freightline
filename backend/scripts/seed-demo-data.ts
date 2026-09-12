@@ -194,7 +194,13 @@ async function createShipment(params: {
 }): Promise<GeneratedShipment> {
   const [originPincode, destinationPincode] = pick(PINCODE_PAIRS);
   const weightGrams = params.weightGramsOverride ?? randInt(150, 3000);
-  const dimensions: Dimensions = { lengthCm: randInt(8, 30), widthCm: randInt(8, 25), heightCm: randInt(5, 20) };
+  // Kept tiny (<=8cm) when forcing a weight discrepancy: volumetric weight
+  // ((L*W*H/5000)*1000) must not be allowed to dominate the small forced
+  // actual weight below, or chargeable_weight_grams ends up far larger than
+  // intended and a 15-40g gap no longer crosses the trigger's 10% threshold.
+  const dimensions: Dimensions = params.forceWeightDiscrepancy
+    ? { lengthCm: randInt(5, 8), widthCm: randInt(5, 8), heightCm: randInt(5, 8) }
+    : { lengthCm: randInt(8, 30), widthCm: randInt(8, 25), heightCm: randInt(5, 20) };
   const shipmentValueRupees = randInt(300, 3000);
 
   const quote = await computeVendorQuote(
@@ -388,7 +394,10 @@ async function main() {
       status,
       paymentMode,
       daysAgo: pickDaysAgo(),
-      weightGramsOverride: forceWeightDiscrepancy ? randInt(150, 220) : undefined,
+      // Kept well under 150g: the gap added below is 15-40g, and even the
+      // worst case (15g gap over a 130g weight = 11.5%) must safely clear
+      // the trigger's >10% threshold.
+      weightGramsOverride: forceWeightDiscrepancy ? randInt(100, 130) : undefined,
       forceWeightDiscrepancy,
     });
     created.push(shipment);

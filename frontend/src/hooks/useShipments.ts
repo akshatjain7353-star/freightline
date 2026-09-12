@@ -11,15 +11,27 @@ export interface ShipmentFilters {
   search?: string;
 }
 
-export function useShipments(filters: ShipmentFilters) {
+export const SHIPMENTS_PAGE_SIZE = 50;
+
+export interface PagedShipments {
+  rows: Shipment[];
+  totalCount: number;
+}
+
+/**
+ * page is 0-indexed. Uses Supabase's range() + exact count instead of a flat
+ * .limit() so results beyond one page are never silently hidden - the
+ * caller always knows the true total via totalCount.
+ */
+export function useShipments(filters: ShipmentFilters, page = 0, pageSize = SHIPMENTS_PAGE_SIZE) {
   return useQuery({
-    queryKey: ["shipments", filters],
-    queryFn: async (): Promise<Shipment[]> => {
+    queryKey: ["shipments", filters, page, pageSize],
+    queryFn: async (): Promise<PagedShipments> => {
       let query = supabase
         .from("shipments_ops_view")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(500);
+        .range(page * pageSize, page * pageSize + pageSize - 1);
 
       if (filters.status) query = query.eq("status", filters.status);
       if (filters.carrierId) query = query.eq("carrier_id", filters.carrierId);
@@ -32,9 +44,9 @@ export function useShipments(filters: ShipmentFilters) {
         );
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return (data ?? []) as unknown as Shipment[];
+      return { rows: (data ?? []) as unknown as Shipment[], totalCount: count ?? 0 };
     },
   });
 }

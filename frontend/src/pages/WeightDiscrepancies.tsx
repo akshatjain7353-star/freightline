@@ -43,7 +43,7 @@ export function WeightDiscrepancies() {
       <div className="flex flex-col gap-4">
         <p className="text-sm text-secondary max-w-2xl">
           Shipments where the vendor's reweighed (charged) weight differs from the declared chargeable weight by
-          more than 10%. Review and accept, dispute with the carrier, or mark resolved.
+          more than 10g. Review and accept, dispute with the carrier, or mark resolved.
         </p>
 
         {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
@@ -72,7 +72,7 @@ export function WeightDiscrepancies() {
                 {shipments.map((s) => {
                   const delta =
                     s.vendor_charged_weight !== null
-                      ? (((s.vendor_charged_weight - s.chargeable_weight_grams) / s.chargeable_weight_grams) * 100).toFixed(1)
+                      ? (s.vendor_charged_weight - s.chargeable_weight_grams).toFixed(0)
                       : null;
                   const status = s.weight_discrepancy_status ?? "flagged";
                   return (
@@ -83,7 +83,7 @@ export function WeightDiscrepancies() {
                       <td className="px-3 py-2 tabular-num whitespace-nowrap">
                         {s.vendor_charged_weight !== null ? `${(s.vendor_charged_weight / 1000).toFixed(2)} kg` : "—"}
                       </td>
-                      <td className="px-3 py-2 tabular-num whitespace-nowrap text-warning">{delta !== null ? `${delta}%` : "—"}</td>
+                      <td className="px-3 py-2 tabular-num whitespace-nowrap text-warning">{delta !== null ? `${delta}g` : "—"}</td>
                       <td className={`px-3 py-2 whitespace-nowrap ${STATUS_CLASSES[status]}`}>{STATUS_LABELS[status]}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex gap-2">
