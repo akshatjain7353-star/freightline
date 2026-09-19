@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "sync-catalog": "node scripts/try-sync-feature-catalog.mjs",
+    "prebuild": "node scripts/try-sync-feature-catalog.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host --port ${PORT:-4173}",
     "start": "vite preview --host --port ${PORT:-4173}",

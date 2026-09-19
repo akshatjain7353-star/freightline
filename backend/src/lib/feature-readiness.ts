@@ -1,9 +1,10 @@
 /**
  * Runtime helpers for the Phase 1 / staging / unverified catalog.
  *
- * Catalog data lives in feature-catalog.json. An identical copy is kept at
- * frontend/src/lib/feature-catalog.json so each Railway service can build
- * from its own tree. `npm test` fails if the two files drift.
+ * Source of truth: repo-root feature-catalog.json. Each package keeps a
+ * committed copy under src/lib/ so Railway services with root backend/ or
+ * frontend/ still build. prebuild copies from the repo root when it exists.
+ * `npm test` fails if the copies drift from each other or from the root file.
  */
 
 import catalogJson from "./feature-catalog.json";

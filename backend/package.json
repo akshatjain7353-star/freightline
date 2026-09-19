@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "sync-catalog": "node scripts/try-sync-feature-catalog.mjs",
+    "prebuild": "node scripts/try-sync-feature-catalog.mjs",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

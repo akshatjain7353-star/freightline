@@ -48,12 +48,19 @@ still work — they do not call the carrier.
 - Unicommerce credentials (local issue works; shipper manifest is not implemented)
 
 `GET /api/capabilities` (auth required) returns the same catalog plus whether
-Delhivery is configured. Catalog data is `feature-catalog.json` in both
-`backend/src/lib/` and `frontend/src/lib/` (identical copies so each Railway
-service can build from its own tree). `cd backend && npm test` fails if they drift.
+Delhivery is configured.
+
+**Feature catalog:** edit repo-root `feature-catalog.json`, then
+`cd backend && npm run sync-catalog` (copies into both packages). Railway
+services use `backend/` or `frontend/` as the root, so a shared npm package
+would not be visible at build time — each package keeps a committed copy
+under `src/lib/`. `prebuild` copies from the repo root when that file exists
+(local/CI) and is a no-op on an isolated Railway checkout. `cd backend && npm test`
+fails if the copies drift from each other or from the root file.
 
 ## Repo layout
 
+- `feature-catalog.json` — source of truth for Phase 1 / staging / unverified gates
 - `supabase/` — SQL migrations (`migrations/0001`–`0023`) and `seed.sql`
 - `backend/` — Express/TypeScript: Delhivery adapter, rate engine, booking, poller
 - `frontend/` — React/Vite ops console
@@ -127,7 +134,8 @@ cd frontend && npm run typecheck
 
 Two Railway services from this repo (`backend/` and `frontend/`). Set the same
 env vars as above, plus `PORT` if Railway does not inject it. Frontend `npm start`
-is a Vite preview server.
+is a Vite preview server. Keep Root Directory as the service folder — do not
+expect `../feature-catalog.json` to exist there; the committed copy is enough.
 
 ## Manual test checklist (Phase 1 golden path)
 

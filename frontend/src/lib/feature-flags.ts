@@ -2,8 +2,9 @@
  * Sidebar/route gating uses this static catalog so ops_only never sees
  * unfinished items even if /api/capabilities is unreachable.
  *
- * Data is frontend/src/lib/feature-catalog.json — keep it identical to
- * backend/src/lib/feature-catalog.json (`npm test` in backend checks this).
+ * Source of truth: repo-root feature-catalog.json. This file imports the
+ * committed copy at src/lib/feature-catalog.json so a Railway frontend/
+ * root still builds. prebuild copies from the repo root when it exists.
  */
 import catalogJson from "./feature-catalog.json";
 import type { AppRole } from "./types";
