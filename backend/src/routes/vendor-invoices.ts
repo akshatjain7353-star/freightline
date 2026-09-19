@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { listVendorInvoiceBatchLines, reconcileVendorInvoice } from "../services/vendor-reconciliation-service.js";
 
 export const vendorInvoicesRouter = Router();
@@ -19,7 +20,9 @@ const uploadSchema = z.object({
 vendorInvoicesRouter.post("/vendor-invoices/reconcile", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = uploadSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Each row needs an AWB and a billed amount.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const result = await reconcileVendorInvoice(
@@ -30,17 +33,17 @@ vendorInvoicesRouter.post("/vendor-invoices/reconcile", requireRole("admin", "ac
     );
     res.status(201).json(result);
   } catch (err) {
-    res.status(500).json({ error: "vendor_reconciliation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "vendor_reconciliation_failed", "Could not reconcile this vendor invoice.");
   }
 });
 
 vendorInvoicesRouter.get("/vendor-invoices/:batchId/lines", requireRole("admin", "accounts_ops"), async (req, res) => {
   const batchId = req.params.batchId;
-  if (!batchId) return res.status(400).json({ error: "invalid_request", message: "Missing batchId" });
+  if (!batchId) return sendError(res, 400, "invalid_request", "Missing batchId");
   try {
     const lines = await listVendorInvoiceBatchLines(batchId);
     res.json({ lines });
   } catch (err) {
-    res.status(500).json({ error: "vendor_invoice_lines_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "vendor_invoice_lines_fetch_failed", "Could not load vendor invoice lines.");
   }
 });

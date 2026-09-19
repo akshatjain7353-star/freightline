@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { listCarrierRemittanceLines, reconcileCarrierRemittance } from "../services/carrier-remittance-service.js";
 
 export const carrierRemittanceRouter = Router();
@@ -15,7 +16,9 @@ const uploadSchema = z.object({
 carrierRemittanceRouter.post("/carrier-remittance/reconcile", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = uploadSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Each row needs an AWB and a remitted amount.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const result = await reconcileCarrierRemittance(
@@ -26,17 +29,22 @@ carrierRemittanceRouter.post("/carrier-remittance/reconcile", requireRole("admin
     );
     res.status(201).json(result);
   } catch (err) {
-    res.status(500).json({ error: "carrier_remittance_reconciliation_failed", message: (err as Error).message });
+    sendUnexpectedError(
+      res,
+      err,
+      "carrier_remittance_reconciliation_failed",
+      "Could not reconcile this remittance file.",
+    );
   }
 });
 
 carrierRemittanceRouter.get("/carrier-remittance/:batchId/lines", requireRole("admin", "accounts_ops"), async (req, res) => {
   const batchId = req.params.batchId;
-  if (!batchId) return res.status(400).json({ error: "invalid_request", message: "Missing batchId" });
+  if (!batchId) return sendError(res, 400, "invalid_request", "Missing batchId");
   try {
     const lines = await listCarrierRemittanceLines(batchId);
     res.json({ lines });
   } catch (err) {
-    res.status(500).json({ error: "carrier_remittance_lines_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "carrier_remittance_lines_fetch_failed", "Could not load remittance lines.");
   }
 });

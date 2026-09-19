@@ -7,7 +7,7 @@ import {
   listPendingDtoRequests,
   rejectDtoRequest,
 } from "../services/dto-request-service.js";
-import { FeatureNotReadyError, featureNotReadyPayload } from "../lib/feature-readiness.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 
 export const dtoRequestsRouter = Router();
 
@@ -16,21 +16,18 @@ dtoRequestsRouter.get("/dto-requests", async (_req, res) => {
     const requests = await listPendingDtoRequests();
     res.json({ requests });
   } catch (err) {
-    res.status(500).json({ error: "dto_requests_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "dto_requests_fetch_failed", "Could not load DTO requests.");
   }
 });
 
 function handleError(err: unknown, res: Response) {
-  if (err instanceof FeatureNotReadyError) {
-    return res.status(501).json(featureNotReadyPayload(err));
-  }
   if (err instanceof DtoRequestNotFoundError) {
-    return res.status(404).json({ error: "dto_request_not_found", message: err.message });
+    return sendError(res, 404, "dto_request_not_found", err.message);
   }
   if (err instanceof DtoRequestNotPendingError) {
-    return res.status(409).json({ error: "dto_request_not_pending", message: err.message });
+    return sendError(res, 409, "dto_request_not_pending", err.message);
   }
-  res.status(500).json({ error: "dto_request_action_failed", message: (err as Error).message });
+  sendUnexpectedError(res, err, "dto_request_action_failed", "Could not update this DTO request.");
 }
 
 const approveSchema = z.object({
@@ -40,7 +37,9 @@ const approveSchema = z.object({
 dtoRequestsRouter.post("/dto-requests/:id/approve", async (req, res) => {
   const parsed = approveSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Pickup date must be YYYY-MM-DD.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const result = await approveDtoRequest(req.params.id, parsed.data.pickupDate, req.user?.id);
@@ -55,7 +54,9 @@ const rejectSchema = z.object({ reason: z.string().min(1) });
 dtoRequestsRouter.post("/dto-requests/:id/reject", async (req, res) => {
   const parsed = rejectSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "A rejection reason is required.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const dtoRequest = await rejectDtoRequest(req.params.id, parsed.data.reason, req.user?.id);

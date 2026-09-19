@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { issueSellerCredentials, listSellerCredentials } from "../services/unicommerce-shipper-service.js";
 
 export const unicommerceCredentialsRouter = Router();
@@ -12,7 +13,7 @@ unicommerceCredentialsRouter.get("/clients/:id/unicommerce-credentials", async (
     const credentials = await listSellerCredentials(req.params.id);
     res.json({ credentials });
   } catch (err) {
-    res.status(500).json({ error: "credentials_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "credentials_fetch_failed", "Could not load Unicommerce credentials.");
   }
 });
 
@@ -21,12 +22,14 @@ const issueSchema = z.object({ label: z.string().min(1) });
 unicommerceCredentialsRouter.post("/clients/:id/unicommerce-credentials", async (req, res) => {
   const parsed = issueSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "A label is required to issue credentials.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const { credential, password } = await issueSellerCredentials(req.params.id, parsed.data.label, req.user?.id);
     res.status(201).json({ credential, username: credential.username, password });
   } catch (err) {
-    res.status(500).json({ error: "credential_issuance_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "credential_issuance_failed", "Could not issue Unicommerce credentials.");
   }
 });

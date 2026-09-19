@@ -2,7 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
 import { generateClientInvoice, listClientInvoices } from "../services/invoice-service.js";
-import { FeatureNotReadyError, assertFeatureReady, featureNotReadyPayload } from "../lib/feature-readiness.js";
+import { assertFeatureReady } from "../lib/feature-readiness.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 
 export const invoicesRouter = Router();
 
@@ -12,7 +13,7 @@ invoicesRouter.get("/invoices", requireRole("admin", "accounts_ops"), async (req
     const invoices = await listClientInvoices(clientId);
     res.json({ invoices });
   } catch (err) {
-    res.status(500).json({ error: "invoices_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "invoices_fetch_failed", "Could not load invoices.");
   }
 });
 
@@ -25,7 +26,9 @@ const generateSchema = z.object({
 invoicesRouter.post("/invoices", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = generateSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check client and invoice period dates.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     // Implementation stays in invoice-service.ts. GST rate / IGST split are
@@ -39,9 +42,6 @@ invoicesRouter.post("/invoices", requireRole("admin", "accounts_ops"), async (re
     );
     res.status(201).json({ invoice });
   } catch (err) {
-    if (err instanceof FeatureNotReadyError) {
-      return res.status(501).json(featureNotReadyPayload(err));
-    }
-    res.status(500).json({ error: "invoice_generation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "invoice_generation_failed", "Could not generate this invoice.");
   }
 });

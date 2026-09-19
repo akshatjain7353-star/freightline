@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { supabase } from "../supabase/client.js";
 import { writeAuditLog } from "../services/audit-log-service.js";
 import { getCashReconciliationRows } from "../services/cash-reconciliation-service.js";
@@ -28,7 +29,7 @@ cashReconciliationRouter.get("/cash-reconciliation", requireRole("admin", "accou
     );
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: "cash_reconciliation_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "cash_reconciliation_fetch_failed", "Could not load cash reconciliation.");
   }
 });
 
@@ -45,7 +46,9 @@ cashReconciliationRouter.patch(
   async (req, res) => {
     const parsed = statusSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+      return sendError(res, 400, "invalid_request", "COD collection status must be pending, collected, or remitted.", {
+        details: parsed.error.flatten(),
+      });
     }
 
     const { data: before } = await supabase
@@ -61,7 +64,7 @@ cashReconciliationRouter.patch(
       .select()
       .single();
     if (error || !shipment) {
-      return res.status(404).json({ error: "shipment_not_found", message: error?.message });
+      return sendError(res, 404, "shipment_not_found", "Shipment not found.");
     }
 
     await writeAuditLog({

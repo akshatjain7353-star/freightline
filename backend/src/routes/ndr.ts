@@ -9,7 +9,7 @@ import {
   requestReattempt,
   ShipmentNotFoundError,
 } from "../services/ndr-service.js";
-import { FeatureNotReadyError, featureNotReadyPayload } from "../lib/feature-readiness.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 
 export const ndrRouter = Router();
 
@@ -20,22 +20,19 @@ ndrRouter.get("/ndr-queue", async (_req, res) => {
     .eq("status", "ndr")
     .order("created_at", { ascending: false });
   if (error) {
-    return res.status(500).json({ error: "ndr_queue_fetch_failed", message: error.message });
+    return sendError(res, 500, "ndr_queue_fetch_failed", "Could not load the NDR queue.");
   }
   res.json({ shipments: data ?? [] });
 });
 
 function handleServiceError(err: unknown, res: Response) {
-  if (err instanceof FeatureNotReadyError) {
-    return res.status(501).json(featureNotReadyPayload(err));
-  }
   if (err instanceof ShipmentNotFoundError) {
-    return res.status(404).json({ error: "shipment_not_found", message: err.message });
+    return sendError(res, 404, "shipment_not_found", err.message);
   }
   if (err instanceof MaxAttemptsExceededError) {
-    return res.status(422).json({ error: "max_attempts_exceeded", message: err.message });
+    return sendError(res, 422, "max_attempts_exceeded", err.message);
   }
-  res.status(500).json({ error: "ndr_action_failed", message: (err as Error).message });
+  sendUnexpectedError(res, err, "ndr_action_failed", "Could not complete this NDR action.");
 }
 
 ndrRouter.post("/shipments/:id/ndr/reattempt", async (req, res) => {
@@ -52,7 +49,9 @@ const addressSchema = z.object({ addressLine: z.string().min(1), city: z.string(
 ndrRouter.post("/shipments/:id/ndr/address", async (req, res) => {
   const parsed = addressSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Address and city are required.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const shipment = await editDeliveryAddress(req.params.id, parsed.data.addressLine, parsed.data.city, req.user?.id);
@@ -67,7 +66,9 @@ const contactSchema = z.object({ notes: z.string().min(1) });
 ndrRouter.post("/shipments/:id/ndr/contact", async (req, res) => {
   const parsed = contactSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Contact notes are required.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     await contactCustomer(req.params.id, parsed.data.notes, req.user?.id);
