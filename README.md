@@ -48,7 +48,9 @@ still work — they do not call the carrier.
 - Unicommerce credentials (local issue works; shipper manifest is not implemented)
 
 `GET /api/capabilities` (auth required) returns the same catalog plus whether
-Delhivery is configured.
+Delhivery is configured. Catalog data is `feature-catalog.json` in both
+`backend/src/lib/` and `frontend/src/lib/` (identical copies so each Railway
+service can build from its own tree). `cd backend && npm test` fails if they drift.
 
 ## Repo layout
 

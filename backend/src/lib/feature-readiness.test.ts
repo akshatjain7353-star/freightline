@@ -3,6 +3,9 @@ import { describe, it } from "node:test";
 import {
   FEATURES,
   FeatureNotReadyError,
+  UNVERIFIED_APIS_ENABLED,
+  assertFeatureReady,
+  featureNotReadyPayload,
   isFeatureActionEnabled,
   isOpsOnlyHidden,
   publicFeatureCatalog,
@@ -64,6 +67,27 @@ describe("feature-readiness catalog", () => {
     assert.equal(isFeatureActionEnabled("createShipment"), true);
     assert.equal(isFeatureActionEnabled("pickup"), false);
     assert.equal(isFeatureActionEnabled("invoices"), false);
+  });
+
+  it("keeps UNVERIFIED_APIS_ENABLED off so billing and carrier writes stay 501", () => {
+    assert.equal(UNVERIFIED_APIS_ENABLED, false);
+    for (const id of ["invoices", "pickup", "label", "ndrReattempt", "reversePickup"] as const) {
+      assert.throws(() => assertFeatureReady(id), FeatureNotReadyError);
+    }
+  });
+
+  it("invoice generate payload names the feature without leaking GST internals", () => {
+    try {
+      assertFeatureReady("invoices");
+      assert.fail("expected FeatureNotReadyError");
+    } catch (err) {
+      assert.ok(err instanceof FeatureNotReadyError);
+      const payload = featureNotReadyPayload(err);
+      assert.equal(payload.error, "feature_not_ready");
+      assert.equal(payload.feature, "invoices");
+      assert.match(payload.message, /not ready/i);
+      assert.doesNotMatch(payload.message, /INV\//);
+    }
   });
 
   it("exposes a public catalog without dropping ids", () => {
