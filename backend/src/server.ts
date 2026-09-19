@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
 import { env } from "./config/env.js";
-import { requireAuth } from "./middleware/auth.js";
+import { requireAuth, requireOps } from "./middleware/auth.js";
+import { clientPortalRouter } from "./routes/client-portal.js";
 import { requireClientApiKey } from "./middleware/client-api-auth.js";
 import { rateCalculatorRouter } from "./routes/rate-calculator.js";
 import { shipmentsRouter } from "./routes/shipments.js";
@@ -40,29 +41,33 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Every route below requires a valid Supabase session — previously none did.
-app.use("/api", requireAuth, rateCalculatorRouter);
-app.use("/api", requireAuth, shipmentsRouter);
-app.use("/api", requireAuth, bulkUploadRouter);
-app.use("/api", requireAuth, rateCardsRouter);
-app.use("/api", requireAuth, serviceabilityRouter);
-app.use("/api", requireAuth, weightDiscrepanciesRouter);
-app.use("/api", requireAuth, pickupsRouter);
-app.use("/api", requireAuth, ndrRouter);
-app.use("/api", requireAuth, exceptionsRouter);
-app.use("/api", requireAuth, invoicesRouter);
-app.use("/api", requireAuth, vendorInvoicesRouter);
-app.use("/api", requireAuth, clientRateCardsRouter);
-app.use("/api", requireAuth, cashReconciliationRouter);
-app.use("/api", requireAuth, carrierRemittanceRouter);
-app.use("/api", requireAuth, clientLedgerRouter);
-app.use("/api", requireAuth, settlementsRouter);
-app.use("/api", requireAuth, dtoRequestsRouter);
-app.use("/api", requireAuth, clientApiKeysRouter);
-app.use("/api", requireAuth, unicommerceCredentialsRouter);
-app.use("/api", requireAuth, importMappingsRouter);
-app.use("/api", requireAuth, dashboardRouter);
-app.use("/api", requireAuth, capabilitiesRouter);
+// Shipper portal first so /api/client/* is not treated as an ops route.
+app.use("/api/client", requireAuth, clientPortalRouter);
+
+// Every ops route requires a valid Supabase session *and* an internal role.
+// Client-portal JWTs must not create bookings or read admin APIs.
+app.use("/api", requireAuth, requireOps, rateCalculatorRouter);
+app.use("/api", requireAuth, requireOps, shipmentsRouter);
+app.use("/api", requireAuth, requireOps, bulkUploadRouter);
+app.use("/api", requireAuth, requireOps, rateCardsRouter);
+app.use("/api", requireAuth, requireOps, serviceabilityRouter);
+app.use("/api", requireAuth, requireOps, weightDiscrepanciesRouter);
+app.use("/api", requireAuth, requireOps, pickupsRouter);
+app.use("/api", requireAuth, requireOps, ndrRouter);
+app.use("/api", requireAuth, requireOps, exceptionsRouter);
+app.use("/api", requireAuth, requireOps, invoicesRouter);
+app.use("/api", requireAuth, requireOps, vendorInvoicesRouter);
+app.use("/api", requireAuth, requireOps, clientRateCardsRouter);
+app.use("/api", requireAuth, requireOps, cashReconciliationRouter);
+app.use("/api", requireAuth, requireOps, carrierRemittanceRouter);
+app.use("/api", requireAuth, requireOps, clientLedgerRouter);
+app.use("/api", requireAuth, requireOps, settlementsRouter);
+app.use("/api", requireAuth, requireOps, dtoRequestsRouter);
+app.use("/api", requireAuth, requireOps, clientApiKeysRouter);
+app.use("/api", requireAuth, requireOps, unicommerceCredentialsRouter);
+app.use("/api", requireAuth, requireOps, importMappingsRouter);
+app.use("/api", requireAuth, requireOps, dashboardRouter);
+app.use("/api", requireAuth, requireOps, capabilitiesRouter);
 
 // Client-facing surface: authenticated by a per-client API key
 // (client-api-auth.ts), never an internal ops Supabase session.

@@ -160,6 +160,8 @@ on conflict (pincode) do nothing;
 -- Phase 1 click-through data (no Delhivery calls). Safe to re-run.
 -- After Auth users exist, assign roles separately — this only adds a client
 -- and a handful of shipments so Dashboard / Shipments / Create Shipment work.
+-- Client portal: insert into client_users (user_id, client_id) after creating
+-- an Auth user. Do not also put that user in user_roles.
 -- ---------------------------------------------------------------------------
 insert into clients (id, name, contact_info, is_seed_data)
 values (
