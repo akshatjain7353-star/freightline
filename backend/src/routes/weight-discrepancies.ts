@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { sendError } from "../lib/http-error.js";
 import { supabase } from "../supabase/client.js";
 import { writeAuditLog } from "../services/audit-log-service.js";
 
@@ -14,7 +15,9 @@ const vendorWeightSchema = z.object({ vendorChargedWeightGrams: z.number().posit
 weightDiscrepanciesRouter.patch("/shipments/:id/vendor-weight", async (req, res) => {
   const parsed = vendorWeightSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Vendor charged weight must be a positive number.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   const { data: before } = await supabase
@@ -31,7 +34,7 @@ weightDiscrepanciesRouter.patch("/shipments/:id/vendor-weight", async (req, res)
     .single();
 
   if (error || !shipment) {
-    return res.status(404).json({ error: "shipment_not_found", message: error?.message });
+    return sendError(res, 404, "shipment_not_found", "Shipment not found.");
   }
 
   await writeAuditLog({
@@ -51,7 +54,9 @@ const statusSchema = z.object({ status: z.enum(["accepted", "disputed", "resolve
 weightDiscrepanciesRouter.patch("/shipments/:id/weight-discrepancy-status", async (req, res) => {
   const parsed = statusSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Status must be accepted, disputed, or resolved.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   const { data: before } = await supabase
@@ -68,7 +73,7 @@ weightDiscrepanciesRouter.patch("/shipments/:id/weight-discrepancy-status", asyn
     .single();
 
   if (error || !shipment) {
-    return res.status(404).json({ error: "shipment_not_found", message: error?.message });
+    return sendError(res, 404, "shipment_not_found", "Shipment not found.");
   }
 
   await writeAuditLog({

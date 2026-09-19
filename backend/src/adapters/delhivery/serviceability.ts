@@ -1,4 +1,5 @@
 import { delhiveryHttp } from "./client.js";
+import { isDelhiveryConfigured } from "../../config/env.js";
 import type { ServiceabilityResult } from "../../lib/types.js";
 
 /**
@@ -6,6 +7,14 @@ import type { ServiceabilityResult } from "../../lib/types.js";
  * An empty response list means the pincode is non-serviceable (NSZ).
  */
 export async function checkServiceability(pincode: string): Promise<ServiceabilityResult> {
+  if (!isDelhiveryConfigured()) {
+    return {
+      pincode,
+      serviceable: true,
+      raw: { skipped: true, reason: "delhivery_not_configured" },
+    };
+  }
+
   const response = await delhiveryHttp.get("/c/api/pin-codes/json/", {
     params: { filter_codes: pincode },
   });

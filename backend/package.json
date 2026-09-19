@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "sync-catalog": "node scripts/try-sync-feature-catalog.mjs",
+    "prebuild": "node scripts/try-sync-feature-catalog.mjs",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "test": "SUPABASE_URL=https://example.supabase.co SUPABASE_SERVICE_ROLE_KEY=phase1-offline-test tsx --test src/lib/*.test.ts src/rate-engine/*.test.ts",
     "seed:demo": "tsx scripts/seed-demo-data.ts",
     "cleanup:demo": "tsx scripts/cleanup-demo-data.ts"
   },

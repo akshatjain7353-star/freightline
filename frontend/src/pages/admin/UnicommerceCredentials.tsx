@@ -6,6 +6,7 @@ import {
   issueUnicommerceCredentials,
   type UnicommerceCredential,
 } from "../../api/backend";
+import { StagingBanner } from "../../components/common/StagingBanner";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -56,6 +57,7 @@ export function UnicommerceCredentials() {
   return (
     <AppLayout title="Unicommerce Credentials">
       <div className="flex flex-col gap-6 max-w-3xl">
+        <StagingBanner feature="unicommerce" />
         <div className="bg-surface border border-border rounded p-4">
           <label className={labelClass}>Client</label>
           <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={`${inputClass} max-w-xs`}>

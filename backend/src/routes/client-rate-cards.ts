@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { createNewClientRateCardVersion, listClientRateCards } from "../services/client-rate-card-service.js";
 
 export const clientRateCardsRouter = Router();
@@ -17,12 +18,12 @@ const SLAB_KEYS = [
 
 clientRateCardsRouter.get("/client-rate-cards", requireRole("admin", "accounts_ops"), async (req, res) => {
   const clientId = typeof req.query.clientId === "string" ? req.query.clientId : undefined;
-  if (!clientId) return res.status(400).json({ error: "invalid_request", message: "clientId is required" });
+  if (!clientId) return sendError(res, 400, "invalid_request", "clientId is required");
   try {
     const rateCards = await listClientRateCards(clientId);
     res.json({ rateCards });
   } catch (err) {
-    res.status(500).json({ error: "client_rate_cards_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "client_rate_cards_fetch_failed", "Could not load client rate cards.");
   }
 });
 
@@ -48,12 +49,14 @@ const newVersionSchema = z.object({
 clientRateCardsRouter.post("/client-rate-cards", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = newVersionSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check client, dates, and slab prices.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const newCard = await createNewClientRateCardVersion(parsed.data, req.user?.id);
     res.status(201).json({ rateCard: newCard });
   } catch (err) {
-    res.status(500).json({ error: "client_rate_card_creation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "client_rate_card_creation_failed", "Could not save this client rate card.");
   }
 });

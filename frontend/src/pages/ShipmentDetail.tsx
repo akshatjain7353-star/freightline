@@ -3,8 +3,11 @@ import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "../components/layout/AppLayout";
 import { StatusPill } from "../components/shipments/StatusPill";
-import { useRelatedShipments, useShipment } from "../hooks/useShipments";
+import { useRelatedShipments, useShipment, useShipmentTracking } from "../hooks/useShipments";
 import { fetchShipmentLabel, initiateDto, schedulePickup } from "../api/backend";
+import { StagingBanner } from "../components/common/StagingBanner";
+import { FEATURES, isFeatureActionEnabled, isFeatureVisibleToRole } from "../lib/feature-flags";
+import { useAuth } from "../lib/auth-context";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent";
@@ -22,8 +25,10 @@ function formatRupees(value: number | null): string {
 
 export function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: shipment, isLoading } = useShipment(id);
+  const { role } = useAuth();
+  const { data: shipment, isLoading, isError } = useShipment(id);
   const { data: relatedShipments } = useRelatedShipments(id);
+  const { data: trackingEvents } = useShipmentTracking(id);
   const queryClient = useQueryClient();
 
   const [pickupDate, setPickupDate] = useState(tomorrow());
@@ -86,7 +91,7 @@ export function ShipmentDetail() {
     );
   }
 
-  if (!shipment) {
+  if (isError || !shipment) {
     return (
       <AppLayout title="Shipment">
         <div className="text-sm text-muted py-8 text-center">Shipment not found.</div>
@@ -94,18 +99,31 @@ export function ShipmentDetail() {
     );
   }
 
-  // Pickup is only relevant before the carrier has collected the package;
-  // the label stays useful while the shipment is still open, but not once
-  // it's reached a resolved end state.
-  const canSchedulePickup = shipment.status === "pending";
-  const pickupDisabledReason = canSchedulePickup ? null : "Already picked up";
+  const showCarrierActions = isFeatureVisibleToRole("pickup", role);
+  const pickupApiReady = isFeatureActionEnabled("pickup");
+  const labelApiReady = isFeatureActionEnabled("label");
+  const dtoApiReady = isFeatureActionEnabled("reversePickup");
+  const canSchedulePickup = pickupApiReady && shipment.status === "pending";
+  const pickupDisabledReason = !pickupApiReady
+    ? FEATURES.pickup.reason
+    : shipment.status === "pending"
+      ? null
+      : "Already picked up";
   const OPEN_STATUSES = ["pending", "in_transit", "ndr"];
-  const canViewLabel = OPEN_STATUSES.includes(shipment.status);
-  const labelDisabledReason = canViewLabel
-    ? null
+  const canViewLabel = labelApiReady && OPEN_STATUSES.includes(shipment.status);
+  const labelDisabledReason = !labelApiReady
+    ? FEATURES.label.reason
+    : canViewLabel
+      ? null
+      : shipment.status === "delivered"
+        ? "Shipment already delivered"
+        : "Shipment already resolved";
+  const canInitiateDto = dtoApiReady && shipment.status === "delivered";
+  const dtoDisabledReason = !dtoApiReady
+    ? FEATURES.reversePickup.reason
     : shipment.status === "delivered"
-      ? "Shipment already delivered"
-      : "Shipment already resolved";
+      ? null
+      : "DTO is only offered after the forward shipment is delivered";
 
   return (
     <AppLayout title={`Shipment ${shipment.awb ?? shipment.order_id}`}>
@@ -137,6 +155,44 @@ export function ShipmentDetail() {
             <div className="text-xs text-muted mb-1">Cost</div>
             <div>{formatRupees(shipment.cost_rupees)}</div>
           </div>
+          <div>
+            <div className="text-xs text-muted mb-1">Order ID</div>
+            <div className="font-mono text-xs">{shipment.order_id}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted mb-1">Payment</div>
+            <div>{shipment.payment_mode}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted mb-1">Address</div>
+            <div className="text-xs">
+              {shipment.destination_address_line ?? "—"}
+              {shipment.destination_city ? `, ${shipment.destination_city}` : ""}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface border border-border rounded p-4">
+          <div className="text-sm font-medium text-secondary mb-3">Tracking</div>
+          {trackingEvents && trackingEvents.length > 0 ? (
+            <ol className="flex flex-col gap-2">
+              {trackingEvents.map((event) => (
+                <li key={event.id} className="text-xs text-secondary flex gap-3">
+                  <span className="font-mono text-muted shrink-0">
+                    {new Date(event.event_timestamp).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                  <span className="text-primary">{event.status}</span>
+                  {event.location && <span className="text-muted">{event.location}</span>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-xs text-muted">
+              {shipment.awb
+                ? "No tracking events yet. The poller updates this after the next successful Delhivery scan."
+                : "Local bookings have no AWB, so the tracking poller cannot fetch carrier scans."}
+            </p>
+          )}
         </div>
 
         {message && (
@@ -151,8 +207,10 @@ export function ShipmentDetail() {
           </div>
         )}
 
+        {showCarrierActions && (
         <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
           <div className="text-sm font-medium text-secondary">Pickup &amp; Label</div>
+          <StagingBanner feature="pickup" />
           <div className="flex items-center gap-3 flex-wrap">
             <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className={inputClass} />
             <button
@@ -175,22 +233,27 @@ export function ShipmentDetail() {
             {labelDisabledReason && <span className="text-xs text-muted">{labelDisabledReason}</span>}
           </div>
         </div>
+        )}
 
-        {shipment.status !== "dto" && (
+        {showCarrierActions && shipment.status !== "dto" && (
           <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
             <div className="text-sm font-medium text-secondary">Initiate Return (DTO)</div>
+            <StagingBanner feature="reversePickup" />
             <p className="text-xs text-muted">
               Books a new reverse-pickup shipment (its own AWB) collecting from the customer and returning to origin.
+              Offered only after the forward shipment is delivered.
             </p>
             <div className="flex items-center gap-3 flex-wrap">
               <input type="date" value={dtoDate} onChange={(e) => setDtoDate(e.target.value)} className={inputClass} />
               <button
                 onClick={handleInitiateDto}
-                disabled={busy === "dto"}
+                disabled={busy === "dto" || !canInitiateDto}
+                title={dtoDisabledReason ?? undefined}
                 className="text-sm px-4 py-1.5 rounded bg-danger/90 text-white hover:opacity-90 disabled:opacity-50"
               >
                 {busy === "dto" ? "Booking..." : "Initiate DTO"}
               </button>
+              {dtoDisabledReason && <span className="text-xs text-muted">{dtoDisabledReason}</span>}
             </div>
           </div>
         )}

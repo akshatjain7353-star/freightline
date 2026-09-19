@@ -1,21 +1,9 @@
 import { Router } from "express";
-import { z } from "zod";
 import { listCarrierAdapters } from "../adapters/registry.js";
 import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
 import { requireRole } from "../middleware/auth.js";
-
-const requestSchema = z.object({
-  originPincode: z.string().min(4),
-  destinationPincode: z.string().min(4),
-  weightGrams: z.number().positive(),
-  dimensions: z.object({
-    lengthCm: z.number().positive(),
-    widthCm: z.number().positive(),
-    heightCm: z.number().positive(),
-  }),
-  paymentMode: z.enum(["COD", "Prepaid"]),
-  shipmentValueRupees: z.number().nonnegative().default(0),
-});
+import { rateCalculatorRequestSchema } from "../lib/shipment-input.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 
 export const rateCalculatorRouter = Router();
 
@@ -23,23 +11,22 @@ export const rateCalculatorRouter = Router();
 // ops_only rather than masking numbers within it (spec Section 11: ops_only
 // gets "no pricing access", not "pricing access with numbers hidden").
 rateCalculatorRouter.post("/rate-calculator", requireRole("admin", "accounts_ops"), async (req, res) => {
-  const parsed = requestSchema.safeParse(req.body);
+  const parsed = rateCalculatorRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check pincodes (6 digits), weight, and dimensions.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   try {
-    const quotes = await Promise.all(
-      listCarrierAdapters().map((adapter) => adapter.getRateQuote(parsed.data)),
-    );
-    // Ranked cheapest-first.
+    const quotes = await Promise.all(listCarrierAdapters().map((adapter) => adapter.getRateQuote(parsed.data)));
     quotes.sort((a, b) => a.totalCostRupees - b.totalCostRupees);
     res.json({ quotes });
   } catch (err) {
     if (err instanceof PincodeNotMappedError) {
-      return res.status(422).json({ error: "pincode_not_mapped", message: err.message });
+      return sendError(res, 422, "pincode_not_mapped", err.message);
     }
     console.error("Rate calculator error:", err);
-    res.status(500).json({ error: "rate_calculation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "rate_calculation_failed", "Could not calculate a rate for this route.");
   }
 });

@@ -5,7 +5,13 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
-  DELHIVERY_API_KEY: z.string().min(1),
+  // Optional: Phase 1 rate-card quotes, local booking, and dashboard work
+  // without a live Delhivery token. Live booking / tracking / serviceability
+  // stay off until a real key is set — we do not invent one.
+  DELHIVERY_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim().length > 0 ? value.trim() : undefined)),
   DELHIVERY_ENV: z.enum(["staging", "production"]).default("staging"),
   DELHIVERY_ZONE_API_PATH: z.string().optional(),
 
@@ -33,4 +39,8 @@ export const DELHIVERY_BASE_URLS = {
 
 export function delhiveryBaseUrl(): string {
   return DELHIVERY_BASE_URLS[env.DELHIVERY_ENV];
+}
+
+export function isDelhiveryConfigured(): boolean {
+  return Boolean(env.DELHIVERY_API_KEY);
 }

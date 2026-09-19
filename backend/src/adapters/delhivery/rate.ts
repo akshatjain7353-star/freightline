@@ -3,6 +3,7 @@ import { resolveZone } from "../../rate-engine/zone-resolver.js";
 import { calculateChargeableWeightGrams } from "../../rate-engine/chargeable-weight.js";
 import { calculateFallbackRate, calculateCodChargeRupees } from "../../rate-engine/rate-card-calculator.js";
 import { getCurrentRateCard } from "../../rate-engine/current-rate-card.js";
+import { isDelhiveryConfigured } from "../../config/env.js";
 import type { Dimensions, PaymentMode, RateQuote } from "../../lib/types.js";
 
 interface GetRateQuoteParams {
@@ -66,7 +67,7 @@ export async function getRateQuote(params: GetRateQuoteParams): Promise<RateQuot
   // calling it for a DTO would just return a forward-priced quote for
   // whichever pincodes are passed, mislabeled as a DTO rate. DTO always uses
   // our own separately-negotiated slab table below instead.
-  const skipLiveApi = params.forceFallback || rateType === "dto";
+  const skipLiveApi = params.forceFallback || rateType === "dto" || !isDelhiveryConfigured();
 
   if (!skipLiveApi) {
     try {

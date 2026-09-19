@@ -7,6 +7,8 @@ import {
   scheduleReversePickup,
   ShipmentNotFoundError,
 } from "../services/pickup-service.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
+import { pincodeSchema } from "../lib/shipment-input.js";
 
 export const pickupsRouter = Router();
 
@@ -19,8 +21,8 @@ const standaloneReversePickupSchema = z.object({
   carrierCode: z.string().min(1).default("delhivery"),
   pickupAddressLine: z.string().min(1),
   pickupCity: z.string().min(1),
-  pickupPincode: z.string().min(4),
-  destinationPincode: z.string().min(4),
+  pickupPincode: pincodeSchema,
+  destinationPincode: pincodeSchema,
   weightGrams: z.number().positive(),
   dimensions: z.object({
     lengthCm: z.number().positive(),
@@ -34,45 +36,51 @@ const standaloneReversePickupSchema = z.object({
 pickupsRouter.post("/shipments/:id/pickup", async (req, res) => {
   const parsed = pickupSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Pickup date must be YYYY-MM-DD.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const pickupRequest = await schedulePickup(req.params.id, parsed.data.pickupDate, req.user?.id);
     res.status(201).json({ pickupRequest });
   } catch (err) {
     if (err instanceof ShipmentNotFoundError) {
-      return res.status(404).json({ error: "shipment_not_found", message: err.message });
+      return sendError(res, 404, "shipment_not_found", err.message);
     }
-    res.status(500).json({ error: "pickup_scheduling_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "pickup_scheduling_failed", "Could not schedule this pickup.");
   }
 });
 
 pickupsRouter.post("/shipments/:id/reverse-pickup", async (req, res) => {
   const parsed = pickupSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Pickup date must be YYYY-MM-DD.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const result = await scheduleReversePickup(req.params.id, parsed.data.pickupDate, req.user?.id);
     res.status(201).json(result);
   } catch (err) {
     if (err instanceof ShipmentNotFoundError) {
-      return res.status(404).json({ error: "shipment_not_found", message: err.message });
+      return sendError(res, 404, "shipment_not_found", err.message);
     }
-    res.status(500).json({ error: "reverse_pickup_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "reverse_pickup_failed", "Could not book this reverse pickup.");
   }
 });
 
 pickupsRouter.post("/reverse-pickups", async (req, res) => {
   const parsed = standaloneReversePickupSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check client, 6-digit pincodes, and pickup date.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const result = await createStandaloneReversePickup(parsed.data, req.user?.id);
     res.status(201).json(result);
   } catch (err) {
-    res.status(500).json({ error: "reverse_pickup_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "reverse_pickup_failed", "Could not book this reverse pickup.");
   }
 });
 
@@ -82,8 +90,8 @@ pickupsRouter.get("/shipments/:id/label", async (req, res) => {
     res.json(label);
   } catch (err) {
     if (err instanceof ShipmentNotFoundError) {
-      return res.status(404).json({ error: "shipment_not_found", message: err.message });
+      return sendError(res, 404, "shipment_not_found", err.message);
     }
-    res.status(500).json({ error: "label_generation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "label_generation_failed", "Could not load this shipping label.");
   }
 });

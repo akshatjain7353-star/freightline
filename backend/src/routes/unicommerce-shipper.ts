@@ -8,6 +8,12 @@ import {
   getWaybillDetails,
 } from "../services/unicommerce-shipper-service.js";
 
+/**
+ * This router speaks Unicommerce's shipper envelope (`status` / `reason` /
+ * `errorMessage`), not the ops-console `{ error, message }` shape. Do not
+ * wrap responses in sendError — a contract change would break the seller
+ * integration. Manifest is still unimplemented (honest FAILED, no fake URL).
+ */
 export const unicommerceShipperRouter = Router();
 
 const authSchema = z.object({ username: z.string().min(1), password: z.string().min(1) });

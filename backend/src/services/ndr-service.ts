@@ -1,6 +1,7 @@
 import { supabase } from "../supabase/client.js";
 import { getCarrierAdapter } from "../adapters/registry.js";
 import { writeAuditLog } from "./audit-log-service.js";
+import { assertFeatureReady } from "../lib/feature-readiness.js";
 
 export class ShipmentNotFoundError extends Error {
   constructor(id: string) {
@@ -43,6 +44,7 @@ async function logNdrAction(
 }
 
 export async function requestReattempt(shipmentId: string, actorId: string | null | undefined) {
+  assertFeatureReady("ndrReattempt");
   const shipment = await loadNdrShipment(shipmentId);
   const maxAttempts = shipment.carriers.max_ndr_attempts;
   if (shipment.ndr_attempt_count >= maxAttempts) {

@@ -8,6 +8,7 @@ import {
   type BulkUploadRowResult,
   type CreateShipmentInput,
 } from "../api/backend";
+import { useCapabilities } from "../hooks/useCapabilities";
 
 const IMPORTER_KEY = "bulk-upload";
 const REQUIRED_FIELDS: RequiredField[] = [
@@ -49,6 +50,8 @@ function parseRow(raw: Record<string, string | undefined>): CreateShipmentInput 
 }
 
 export function BulkUpload() {
+  const { data: capabilities } = useCapabilities();
+  const manualBooking = capabilities?.manualBookingEnabled ?? false;
   const [rawRows, setRawRows] = useState<Record<string, string | undefined>[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mapped, setMapped] = useState(false);
@@ -72,6 +75,10 @@ export function BulkUpload() {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
+        if (result.data.length === 0) {
+          setError("That CSV has no data rows.");
+          return;
+        }
         setRawRows(result.data);
         setCsvHeaders(result.meta.fields ?? []);
       },
@@ -133,6 +140,20 @@ export function BulkUpload() {
   return (
     <AppLayout title="Bulk Upload">
       <div className="max-w-3xl flex flex-col gap-4">
+        {manualBooking && (
+          <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2">
+            Delhivery is not configured. Rows will save as local shipments without AWBs. Serviceability
+            cannot be checked against the carrier until <span className="font-mono">DELHIVERY_API_KEY</span> is
+            set.
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          Need a starting file?{" "}
+          <a href="/sample-bulk-upload.csv" download className="underline decoration-dotted text-secondary hover:text-primary">
+            Download a sample CSV
+          </a>{" "}
+          (uses the seeded Test Client UUID and 110001 → 400001).
+        </p>
         <div className="bg-surface border border-border rounded p-4 flex items-center gap-4">
           <input
             type="file"

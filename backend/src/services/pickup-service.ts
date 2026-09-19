@@ -1,6 +1,7 @@
 import { supabase } from "../supabase/client.js";
 import { getCarrierAdapter } from "../adapters/registry.js";
 import { writeAuditLog } from "./audit-log-service.js";
+import { assertFeatureReady } from "../lib/feature-readiness.js";
 import type { Dimensions } from "../lib/types.js";
 
 export class ShipmentNotFoundError extends Error {
@@ -21,6 +22,7 @@ async function loadShipmentWithCarrier(shipmentId: string) {
 }
 
 export async function schedulePickup(shipmentId: string, pickupDate: string, actorId: string | null | undefined) {
+  assertFeatureReady("pickup");
   const shipment = await loadShipmentWithCarrier(shipmentId);
   if (!shipment.awb) throw new Error("Shipment has no AWB yet — book it before scheduling a pickup.");
 
@@ -59,6 +61,7 @@ export async function schedulePickup(shipmentId: string, pickupDate: string, act
 }
 
 export async function generateLabel(shipmentId: string) {
+  assertFeatureReady("label");
   const shipment = await loadShipmentWithCarrier(shipmentId);
   if (!shipment.awb) throw new Error("Shipment has no AWB yet — book it before generating a label.");
 
@@ -94,6 +97,7 @@ export interface BookReversePickupParams {
  * client-submitted DTO request (dto-request-service.ts).
  */
 export async function bookReversePickup(params: BookReversePickupParams, actorId: string | null | undefined) {
+  assertFeatureReady("reversePickup");
   const adapter = getCarrierAdapter(params.carrierCode);
 
   const { data: carrier, error: carrierError } = await supabase

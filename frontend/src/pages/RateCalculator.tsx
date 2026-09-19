@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { calculateRates } from "../api/backend";
+import { useCapabilities } from "../hooks/useCapabilities";
+import { PINCODE_PATTERN } from "../lib/validation";
 import type { PaymentMode, RateQuote } from "../lib/types";
 
 const inputClass =
@@ -8,6 +10,7 @@ const inputClass =
 const labelClass = "text-xs text-secondary mb-1 block";
 
 export function RateCalculator() {
+  const { data: capabilities } = useCapabilities();
   const [originPincode, setOriginPincode] = useState("");
   const [destinationPincode, setDestinationPincode] = useState("");
   const [weightKg, setWeightKg] = useState("1");
@@ -45,16 +48,39 @@ export function RateCalculator() {
 
   return (
     <AppLayout title="Rate Calculator">
+      {capabilities && !capabilities.delhiveryConfigured && (
+        <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2 mb-4">
+          Delhivery is not configured. Quotes use the seeded rate-card fallback (not a live carrier API).
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <form onSubmit={handleSubmit} className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Origin pincode</label>
-              <input required value={originPincode} onChange={(e) => setOriginPincode(e.target.value)} className={inputClass} />
+              <input
+                required
+                inputMode="numeric"
+                pattern={PINCODE_PATTERN}
+                maxLength={6}
+                title="6-digit Indian PIN"
+                value={originPincode}
+                onChange={(e) => setOriginPincode(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div>
               <label className={labelClass}>Destination pincode</label>
-              <input required value={destinationPincode} onChange={(e) => setDestinationPincode(e.target.value)} className={inputClass} />
+              <input
+                required
+                inputMode="numeric"
+                pattern={PINCODE_PATTERN}
+                maxLength={6}
+                title="6-digit Indian PIN"
+                value={destinationPincode}
+                onChange={(e) => setDestinationPincode(e.target.value)}
+                className={inputClass}
+              />
             </div>
           </div>
           <div>
@@ -94,12 +120,27 @@ export function RateCalculator() {
             {loading ? "Calculating..." : "Calculate rates"}
           </button>
           {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
+          <p className="text-xs text-muted">
+            Seeded pair that always quotes: <span className="font-mono">110001</span> →{" "}
+            <span className="font-mono">400001</span>. Other PINs need a <span className="font-mono">pincode_master</span>{" "}
+            row.
+          </p>
         </form>
 
         <div className="flex flex-col gap-3">
+          {loading && (
+            <div className="text-sm text-muted py-8 text-center border border-dashed border-border rounded">
+              Calculating…
+            </div>
+          )}
           {quotes === null && !loading && (
             <div className="text-sm text-muted py-8 text-center border border-dashed border-border rounded">
               Enter shipment details and calculate to see ranked carrier quotes.
+            </div>
+          )}
+          {quotes && quotes.length === 0 && !loading && (
+            <div className="text-sm text-muted py-8 text-center border border-dashed border-border rounded">
+              No carrier quotes returned.
             </div>
           )}
           {quotes?.map((q, i) => (

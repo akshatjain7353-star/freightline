@@ -45,6 +45,10 @@ export function WeightDiscrepancies() {
           Shipments where the vendor's reweighed (charged) weight differs from the declared chargeable weight by
           more than 10g. Review and accept, dispute with the carrier, or mark resolved.
         </p>
+        <div className="text-xs text-muted bg-surface2 border border-border rounded px-3 py-2 max-w-2xl">
+          Automatic flags from the tracking poller&apos;s <span className="font-mono">ChargedWeight</span> field
+          are unverified. Use the manual vendor-weight entry on a shipment until that payload is confirmed.
+        </div>
 
         {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { AppLayout } from "../../components/layout/AppLayout";
 import { useClients } from "../../hooks/useReferenceData";
 import { fetchInvoices, generateInvoice, type ClientInvoice } from "../../api/backend";
+import { StagingBanner } from "../../components/common/StagingBanner";
+import { FEATURES, isFeatureActionEnabled } from "../../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -60,12 +62,12 @@ export function Invoices() {
   return (
     <AppLayout title="Invoices">
       <div className="flex flex-col gap-6 max-w-4xl">
+        <StagingBanner feature="invoices" />
         <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
           <div className="text-sm font-medium text-secondary">Generate invoice</div>
           <p className="text-xs text-muted">
-            GST-compliant invoicing (sequential numbering, tax line items) is schema-complete; the full
-            client-facing billing dashboard and ledger ship in Phase 2. This bundles every priced shipment for the
-            client in the period into one draft invoice.
+            Draft generation is disabled until Time Bound confirms the GST rate and intra- vs inter-state split.
+            Existing invoices (if any) still list below.
           </p>
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -96,7 +98,8 @@ export function Invoices() {
           )}
           <button
             onClick={handleGenerate}
-            disabled={generating || !clientId}
+            disabled={generating || !clientId || !isFeatureActionEnabled("invoices")}
+            title={!isFeatureActionEnabled("invoices") ? FEATURES.invoices.reason : undefined}
             className="bg-accent text-accent-fg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 self-start px-6"
           >
             {generating ? "Generating..." : "Generate invoice"}

@@ -155,3 +155,111 @@ insert into pincode_master (pincode, city, state, lat, lng, is_metro) values
   ('302001', 'Jaipur', 'Rajasthan', 26.9124, 75.7873, false),
   ('226001', 'Lucknow', 'Uttar Pradesh', 26.8467, 80.9462, false)
 on conflict (pincode) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Phase 1 click-through data (no Delhivery calls). Safe to re-run.
+-- After Auth users exist, assign roles separately — this only adds a client
+-- and a handful of shipments so Dashboard / Shipments / Create Shipment work.
+-- Client portal: insert into client_users (user_id, client_id) after creating
+-- an Auth user. Do not also put that user in user_roles.
+-- ---------------------------------------------------------------------------
+insert into clients (id, name, contact_info, is_seed_data)
+values (
+  '00000000-0000-0000-0000-000000000201',
+  'Test Client',
+  '{"email":"ops@example.com"}'::jsonb,
+  true
+)
+on conflict (id) do nothing;
+
+insert into shipments (
+  id, awb, order_id, client_id, carrier_id,
+  origin_pincode, destination_pincode, destination_address_line, destination_city,
+  weight_grams, length_cm, width_cm, height_cm, chargeable_weight_grams,
+  zone_code, zone_source, payment_mode, status,
+  rate_card_id, cost_rupees, cod_charge_rupees, shipment_value_rupees,
+  source, is_seed_data, raw_booking_response
+) values
+  (
+    '00000000-0000-0000-0000-000000000301',
+    null,
+    'PHASE1-PENDING-001',
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '110001', '400001', '12 Connaught Place', 'Delhi',
+    1000, 10, 10, 10, 1000,
+    'C1', 'computed', 'Prepaid', 'pending',
+    '00000000-0000-0000-0000-000000000101', 52, 0, 500,
+    'manual', true, '{"mode":"local_offline","seed":"phase1"}'::jsonb
+  ),
+  (
+    '00000000-0000-0000-0000-000000000302',
+    'PHASE1-AWB-INTRANSIT',
+    'PHASE1-INTRANSIT-001',
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '400001', '400069', '8 Fort Market', 'Mumbai',
+    800, 12, 10, 8, 800,
+    'A', 'computed', 'COD', 'in_transit',
+    '00000000-0000-0000-0000-000000000101', 36, 20, 1200,
+    'manual', true, '{"mode":"local_offline","seed":"phase1"}'::jsonb
+  ),
+  (
+    '00000000-0000-0000-0000-000000000303',
+    'PHASE1-AWB-DELIVERED',
+    'PHASE1-DELIVERED-001',
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '110001', '110037', '4 IGI Cargo', 'Delhi',
+    400, 10, 10, 10, 400,
+    'A', 'computed', 'Prepaid', 'delivered',
+    '00000000-0000-0000-0000-000000000101', 29, 0, 800,
+    'manual', true, '{"mode":"local_offline","seed":"phase1"}'::jsonb
+  ),
+  (
+    '00000000-0000-0000-0000-000000000304',
+    'PHASE1-AWB-NDR',
+    'PHASE1-NDR-001',
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '560001', '560103', '22 MG Road', 'Bangalore',
+    1500, 15, 12, 10, 1500,
+    'A', 'computed', 'COD', 'ndr',
+    '00000000-0000-0000-0000-000000000101', 43, 20, 900,
+    'manual', true, '{"mode":"local_offline","seed":"phase1"}'::jsonb
+  ),
+  (
+    '00000000-0000-0000-0000-000000000305',
+    'PHASE1-AWB-RTO',
+    'PHASE1-RTO-001',
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '600001', '600089', '9 T Nagar', 'Chennai',
+    600, 10, 10, 10, 600,
+    'A', 'computed', 'Prepaid', 'rto',
+    '00000000-0000-0000-0000-000000000101', 36, 0, 400,
+    'manual', true, '{"mode":"local_offline","seed":"phase1"}'::jsonb
+  )
+on conflict (id) do nothing;
+
+insert into tracking_events (shipment_id, status, event_timestamp, location, raw_carrier_payload)
+select v.shipment_id, v.status, now() - v.hours_ago * interval '1 hour', v.location, '{"seed":"phase1"}'::jsonb
+from (values
+  ('00000000-0000-0000-0000-000000000301'::uuid, 'Booked', 6, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000302'::uuid, 'Booked', 36, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000302'::uuid, 'Picked Up', 24, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000302'::uuid, 'In Transit', 8, 'Transit hub'),
+  ('00000000-0000-0000-0000-000000000303'::uuid, 'Booked', 72, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000303'::uuid, 'Picked Up', 60, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000303'::uuid, 'Delivered', 12, 'Destination'),
+  ('00000000-0000-0000-0000-000000000304'::uuid, 'Booked', 48, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000304'::uuid, 'Undelivered - NDR', 6, 'Destination hub'),
+  ('00000000-0000-0000-0000-000000000305'::uuid, 'Booked', 96, 'Origin hub'),
+  ('00000000-0000-0000-0000-000000000305'::uuid, 'RTO Initiated', 24, 'Destination hub')
+) as v(shipment_id, status, hours_ago, location)
+where exists (select 1 from shipments s where s.id = v.shipment_id)
+  and not exists (
+    select 1 from tracking_events te
+    where te.shipment_id = v.shipment_id and te.status = v.status
+  );
+

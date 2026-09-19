@@ -8,6 +8,7 @@ import {
   type CarrierRemittanceLine,
   type CarrierRemittanceResult,
 } from "../../api/backend";
+import { StagingBanner } from "../../components/common/StagingBanner";
 
 const IMPORTER_KEY = "carrier-remittance";
 const REQUIRED_FIELDS: RequiredField[] = [
@@ -88,6 +89,7 @@ export function CarrierRemittance() {
   return (
     <AppLayout title="Carrier COD Remittance">
       <div className="max-w-3xl flex flex-col gap-4">
+        <StagingBanner feature="carrierRemittance" />
         <div className="bg-surface border border-border rounded p-4 text-sm text-secondary">
           <p>
             Upload the carrier's COD remittance report — the cash they've collected from customers and paid out to

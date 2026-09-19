@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import {
   getClientLedgerSummaries,
   listClientLedgerEntries,
@@ -14,18 +15,18 @@ clientLedgerRouter.get("/client-ledger/summary", requireRole("admin", "accounts_
     const summaries = await getClientLedgerSummaries();
     res.json({ summaries });
   } catch (err) {
-    res.status(500).json({ error: "client_ledger_summary_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "client_ledger_summary_failed", "Could not load ledger summaries.");
   }
 });
 
 clientLedgerRouter.get("/client-ledger/:clientId", requireRole("admin", "accounts_ops"), async (req, res) => {
   const clientId = req.params.clientId;
-  if (!clientId) return res.status(400).json({ error: "invalid_request", message: "Missing clientId" });
+  if (!clientId) return sendError(res, 400, "invalid_request", "Missing clientId");
   try {
     const entries = await listClientLedgerEntries(clientId);
     res.json({ entries });
   } catch (err) {
-    res.status(500).json({ error: "client_ledger_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "client_ledger_fetch_failed", "Could not load this client's ledger.");
   }
 });
 
@@ -39,7 +40,9 @@ const paymentSchema = z.object({
 clientLedgerRouter.post("/client-payments", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = paymentSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check client, amount, and payment date.", {
+      details: parsed.error.flatten(),
+    });
   }
   try {
     const payment = await recordClientPayment(
@@ -51,6 +54,6 @@ clientLedgerRouter.post("/client-payments", requireRole("admin", "accounts_ops")
     );
     res.status(201).json({ payment });
   } catch (err) {
-    res.status(500).json({ error: "payment_recording_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "payment_recording_failed", "Could not record this payment.");
   }
 });

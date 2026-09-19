@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
+import { Link } from "react-router-dom";
 import { checkServiceability, createShipment } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
+import { useCapabilities } from "../hooks/useCapabilities";
+import { isValidPincode, PINCODE_PATTERN } from "../lib/validation";
 import type { PaymentMode } from "../lib/types";
 
 const inputClass =
@@ -11,6 +14,8 @@ const labelClass = "text-xs text-secondary mb-1 block";
 export function CreateShipment() {
   const { data: clients } = useClients();
   const { data: carriers } = useCarriers();
+  const { data: capabilities } = useCapabilities();
+  const manualBooking = capabilities?.manualBookingEnabled ?? false;
 
   const [orderId, setOrderId] = useState("");
   const [clientId, setClientId] = useState("");
@@ -28,21 +33,25 @@ export function CreateShipment() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ text: string; shipmentId?: string } | null>(null);
 
-  const [serviceability, setServiceability] = useState<"idle" | "checking" | "serviceable" | "non_serviceable">(
-    "idle",
-  );
+  const [serviceability, setServiceability] = useState<
+    "idle" | "checking" | "serviceable" | "non_serviceable" | "skipped"
+  >("idle");
 
   async function handlePincodeBlur() {
-    if (destinationPincode.length < 4) {
+    if (!isValidPincode(destinationPincode)) {
       setServiceability("idle");
       return;
     }
     setServiceability("checking");
     try {
       const result = await checkServiceability(destinationPincode, carrierCode);
-      setServiceability(result.serviceable ? "serviceable" : "non_serviceable");
+      if (result.raw?.skipped) {
+        setServiceability("skipped");
+      } else {
+        setServiceability(result.serviceable ? "serviceable" : "non_serviceable");
+      }
     } catch {
       // Fail open on the pre-check itself — the hard backstop on the server
       // (NonServiceableError) still catches this at actual booking time.
@@ -57,7 +66,7 @@ export function CreateShipment() {
     setSuccess(null);
     const client = clients?.find((c) => c.id === clientId);
     try {
-      const result = (await createShipment({
+      const result = await createShipment({
         orderId,
         clientId,
         clientName: client?.name ?? "",
@@ -70,8 +79,15 @@ export function CreateShipment() {
         dimensions: { lengthCm: parseFloat(length), widthCm: parseFloat(width), heightCm: parseFloat(height) },
         paymentMode,
         shipmentValueRupees: parseFloat(shipmentValue) || 0,
-      })) as { shipment: { awb: string } };
-      setSuccess(`Shipment booked. AWB: ${result.shipment.awb}`);
+      });
+      if (result.shipment.awb) {
+        setSuccess({ text: `Shipment booked. AWB: ${result.shipment.awb}`, shipmentId: result.shipment.id });
+      } else {
+        setSuccess({
+          text: "Local shipment saved (no AWB). Add DELHIVERY_API_KEY to enable live carrier booking.",
+          shipmentId: result.shipment.id,
+        });
+      }
       setOrderId("");
     } catch (err) {
       setError((err as Error).message);
@@ -82,6 +98,13 @@ export function CreateShipment() {
 
   return (
     <AppLayout title="Create Shipment">
+      {manualBooking && (
+        <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2 mb-4 max-w-2xl">
+          Delhivery is not configured. Booking will save a local shipment without an AWB so ops can still
+          track orders in this console. Set <span className="font-mono">DELHIVERY_API_KEY</span> on the
+          backend to enable live booking.
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="max-w-2xl bg-surface border border-border rounded p-5 flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -127,12 +150,25 @@ export function CreateShipment() {
           </div>
           <div>
             <label className={labelClass}>Origin pincode</label>
-            <input required value={originPincode} onChange={(e) => setOriginPincode(e.target.value)} className={inputClass} />
+            <input
+              required
+              inputMode="numeric"
+              pattern={PINCODE_PATTERN}
+              maxLength={6}
+              title="6-digit Indian PIN"
+              value={originPincode}
+              onChange={(e) => setOriginPincode(e.target.value)}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Destination pincode</label>
             <input
               required
+              inputMode="numeric"
+              pattern={PINCODE_PATTERN}
+              maxLength={6}
+              title="6-digit Indian PIN"
               value={destinationPincode}
               onChange={(e) => {
                 setDestinationPincode(e.target.value);
@@ -142,6 +178,9 @@ export function CreateShipment() {
               className={inputClass}
             />
             {serviceability === "checking" && <div className="text-xs text-muted mt-1">Checking serviceability…</div>}
+            {serviceability === "skipped" && (
+              <div className="text-xs text-warning mt-1">Serviceability not checked (carrier API not configured)</div>
+            )}
             {serviceability === "serviceable" && <div className="text-xs text-success mt-1">Serviceable</div>}
             {serviceability === "non_serviceable" && (
               <div className="text-xs text-danger mt-1">Not serviceable by this carrier</div>
@@ -182,8 +221,23 @@ export function CreateShipment() {
           </div>
         </div>
 
+        {clients && clients.length === 0 && (
+          <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+            No clients found. Run <span className="font-mono">supabase/seed.sql</span> (includes Test Client) or insert a
+            row into <span className="font-mono">clients</span>.
+          </div>
+        )}
         {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
-        {success && <div className="text-xs text-success bg-success/10 border border-success/30 rounded px-2 py-1.5">{success}</div>}
+        {success && (
+          <div className="text-xs text-success bg-success/10 border border-success/30 rounded px-2 py-1.5">
+            {success.text}{" "}
+            {success.shipmentId && (
+              <Link to={`/shipments/${success.shipmentId}`} className="underline decoration-dotted">
+                View shipment
+              </Link>
+            )}
+          </div>
+        )}
 
         <button
           type="submit"

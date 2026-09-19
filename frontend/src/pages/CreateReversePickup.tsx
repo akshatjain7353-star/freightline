@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { createReversePickup } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
+import { StagingBanner } from "../components/common/StagingBanner";
+import { FEATURES, isFeatureActionEnabled } from "../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -67,6 +69,9 @@ export function CreateReversePickup() {
 
   return (
     <AppLayout title="Create Reverse Pickup">
+      <div className="max-w-2xl">
+        <StagingBanner feature="reversePickup" />
+      </div>
       <form onSubmit={handleSubmit} className="max-w-2xl bg-surface border border-border rounded p-5 flex flex-col gap-4">
         <p className="text-xs text-muted -mt-1">
           Books a reverse pickup (RTV/DTO) with no prior Time Bound shipment involved — the carrier collects from the
@@ -175,7 +180,8 @@ export function CreateReversePickup() {
 
         <button
           type="submit"
-          disabled={submitting || !clientId}
+          disabled={submitting || !clientId || !isFeatureActionEnabled("reversePickup")}
+          title={!isFeatureActionEnabled("reversePickup") ? FEATURES.reversePickup.reason : undefined}
           className="bg-accent text-accent-fg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 self-start px-6"
         >
           {submitting ? "Booking..." : "Book reverse pickup"}
