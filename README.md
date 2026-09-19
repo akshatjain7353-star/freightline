@@ -63,7 +63,10 @@ Delhivery is configured.
 
 1. Create a Supabase project.
 2. Run **all** migrations in filename order (`0001_schema.sql` through `0023_refresh_rate_card_views.sql`). `0006_add_dto_status.sql` must commit before `0007_shipment_schema_fixes.sql` (Postgres requires a new enum value to be committed before it is usable). If the SQL editor is awkward, `supabase/manual-apply/` has batched files.
-3. Run `supabase/seed.sql` to load the Delhivery carrier, rate card, zones, metro list, and the small pincode seed set.
+3. Run `supabase/seed.sql` **after** the migrations. It loads:
+   - Delhivery carrier, rate card, zones, metro list, ~18 metro pincodes
+   - **Test Client** (`00000000-0000-0000-0000-000000000201`)
+   - Five Phase 1 sample shipments (pending / in transit / delivered / NDR / RTO) plus tracking events — enough to click Dashboard and Shipments **without** a Delhivery key
 4. Create at least one Supabase Auth user (email/password) — Authentication → Users → Add user.
 5. Assign a role (there is no manage-users UI yet):
 
@@ -72,9 +75,9 @@ Delhivery is configured.
    -- role is one of: 'admin', 'accounts_ops', 'ops_only'
    ```
 
-   A user with no `user_roles` row can sign in but every role-gated screen treats them as having no access.
-6. Add at least one row to `clients` so Create Shipment / Bulk Upload have a client to select.
-7. Optional: `cd backend && npm run seed:demo` after env is set, to populate dashboard KPIs without live bookings.
+   A user with no `user_roles` row can sign in; the dashboard explains that pricing/admin stay blocked until a role is assigned.
+6. Create Shipment / Bulk Upload already have **Test Client**. Bulk Upload has a sample CSV (`frontend/public/sample-bulk-upload.csv`) that uses that client UUID and `110001` → `400001`.
+7. Optional larger demo (70 shipments, invoices, remittance): `cd backend && npm run seed:demo` after backend `.env` is set. Invoice generate stays disabled in the UI; the script writes drafts via the service layer for admin inspection only.
 
 ### 2. Node.js
 
@@ -111,6 +114,13 @@ cd frontend && npm run dev
 
 Frontend: `http://localhost:5173`. Backend: `http://localhost:8080`.
 
+Offline checks (no live Supabase/Delhivery credentials):
+
+```bash
+cd backend && npm test && npm run typecheck
+cd frontend && npm run typecheck
+```
+
 ### 5. Deploy to Railway
 
 Two Railway services from this repo (`backend/` and `frontend/`). Set the same
@@ -125,8 +135,8 @@ Needs a real Supabase project. Delhivery key is optional (steps note the differe
 2. **Rate Calculator**: quote `110001` → `400001` (seeded, same metro). Confirm a zone and a total. Label should say `live API quote` if a key is set, otherwise `fallback rate card`.
 3. Quote a pincode that is not in `pincode_master` — expect a clear "pincode not mapped" error, not a wrong zone.
 4. **Create Shipment**: book for a seeded client on a seeded pincode pair. Confirm it appears in **Shipments** with a status pill, zone, and cost. With a Delhivery key, destination pincode should show a serviceable badge; without a key, the badge says serviceability was not checked.
-5. **Bulk Upload**: small CSV using the column mapper — per-row success/failure matches Shipments.
-6. **Dashboard**: KPI cards and charts reflect the shipments (or `npm run seed:demo` data). `ops_only` sees Revenue as `—`.
+5. **Bulk Upload**: download the sample CSV on the page, map columns, upload — per-row success/failure matches Shipments.
+6. **Dashboard**: after `seed.sql`, KPI cards are non-empty. `ops_only` sees Revenue as `—`.
 7. Toggle dark/light mode and confirm it persists across reload.
 
 ### RBAC

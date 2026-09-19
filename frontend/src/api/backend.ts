@@ -3,58 +3,83 @@ import { getAccessToken } from "../lib/supabase";
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly feature?: string;
+
+  constructor(status: number, message: string, code?: string, feature?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.feature = feature;
+  }
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function parseJsonResponse<T>(response: Response, path: string): Promise<T> {
+  const text = await response.text();
+  let data: { message?: string; error?: string; feature?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as typeof data;
+    } catch {
+      throw new ApiError(response.status, `Request to ${path} failed (${response.status}).`);
+    }
+  }
+  if (!response.ok) {
+    const message =
+      data.message ??
+      (response.status === 501
+        ? "This action is not ready for live use."
+        : `Request to ${path} failed (${response.status}).`);
+    throw new ApiError(response.status, message, data.error, data.feature);
+  }
+  return data as T;
+}
+
+function requireBackendUrl(): string {
+  if (!BASE_URL) {
+    throw new ApiError(0, "VITE_BACKEND_URL is not set. Copy frontend/.env.example to frontend/.env.");
+  }
+  return BASE_URL;
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${requireBackendUrl()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.message ?? data?.error ?? `Request to ${path} failed (${response.status})`);
-  }
-  return data as T;
+  return parseJsonResponse<T>(response, path);
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, { headers: await authHeaders() });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.message ?? data?.error ?? `Request to ${path} failed (${response.status})`);
-  }
-  return data as T;
+  const response = await fetch(`${requireBackendUrl()}${path}`, { headers: await authHeaders() });
+  return parseJsonResponse<T>(response, path);
 }
 
 async function patchJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${requireBackendUrl()}${path}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.message ?? data?.error ?? `Request to ${path} failed (${response.status})`);
-  }
-  return data as T;
+  return parseJsonResponse<T>(response, path);
 }
 
 async function putJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${requireBackendUrl()}${path}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.message ?? data?.error ?? `Request to ${path} failed (${response.status})`);
-  }
-  return data as T;
+  return parseJsonResponse<T>(response, path);
 }
 
 export function fetchImportMapping(importerKey: string) {
@@ -99,8 +124,13 @@ export interface CreateShipmentInput extends RateCalculatorInput {
   carrierCode: string;
 }
 
+export interface CreateShipmentResult {
+  shipment: { id: string; awb: string | null; order_id: string };
+  bookingMode: "carrier" | "local_offline";
+}
+
 export function createShipment(input: CreateShipmentInput) {
-  return postJson("/api/shipments", input);
+  return postJson<CreateShipmentResult>("/api/shipments", input);
 }
 
 export interface BulkUploadRowResult {

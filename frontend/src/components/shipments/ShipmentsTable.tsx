@@ -23,7 +23,15 @@ function formatRupees(value: number | null): string {
   return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function ShipmentsTable({ shipments, isLoading }: { shipments: Shipment[]; isLoading: boolean }) {
+export function ShipmentsTable({
+  shipments,
+  isLoading,
+  emptyHint = "No shipments match these filters.",
+}: {
+  shipments: Shipment[];
+  isLoading: boolean;
+  emptyHint?: string;
+}) {
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -31,7 +39,7 @@ export function ShipmentsTable({ shipments, isLoading }: { shipments: Shipment[]
   }
 
   if (shipments.length === 0) {
-    return <div className="text-sm text-muted py-8 text-center">No shipments match these filters.</div>;
+    return <div className="text-sm text-muted py-8 text-center">{emptyHint}</div>;
   }
 
   return (

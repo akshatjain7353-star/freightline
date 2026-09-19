@@ -3,7 +3,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { createReversePickup } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
 import { StagingBanner } from "../components/common/StagingBanner";
-import { FEATURES } from "../lib/feature-flags";
+import { FEATURES, isFeatureActionEnabled } from "../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -180,8 +180,8 @@ export function CreateReversePickup() {
 
         <button
           type="submit"
-          disabled={submitting || !clientId || FEATURES.reversePickup.readiness !== "ready"}
-          title={FEATURES.reversePickup.readiness !== "ready" ? FEATURES.reversePickup.reason : undefined}
+          disabled={submitting || !clientId || !isFeatureActionEnabled("reversePickup")}
+          title={!isFeatureActionEnabled("reversePickup") ? FEATURES.reversePickup.reason : undefined}
           className="bg-accent text-accent-fg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 self-start px-6"
         >
           {submitting ? "Booking..." : "Book reverse pickup"}

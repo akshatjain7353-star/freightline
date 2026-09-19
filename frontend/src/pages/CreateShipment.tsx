@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
+import { Link } from "react-router-dom";
 import { checkServiceability, createShipment } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
 import { useCapabilities } from "../hooks/useCapabilities";
+import { PINCODE_PATTERN } from "../lib/validation";
 import type { PaymentMode } from "../lib/types";
 
 const inputClass =
@@ -31,7 +33,7 @@ export function CreateShipment() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ text: string; shipmentId?: string } | null>(null);
 
   const [serviceability, setServiceability] = useState<
     "idle" | "checking" | "serviceable" | "non_serviceable" | "skipped"
@@ -64,7 +66,7 @@ export function CreateShipment() {
     setSuccess(null);
     const client = clients?.find((c) => c.id === clientId);
     try {
-      const result = (await createShipment({
+      const result = await createShipment({
         orderId,
         clientId,
         clientName: client?.name ?? "",
@@ -77,11 +79,14 @@ export function CreateShipment() {
         dimensions: { lengthCm: parseFloat(length), widthCm: parseFloat(width), heightCm: parseFloat(height) },
         paymentMode,
         shipmentValueRupees: parseFloat(shipmentValue) || 0,
-      })) as { shipment: { awb: string | null }; bookingMode?: string };
+      });
       if (result.shipment.awb) {
-        setSuccess(`Shipment booked. AWB: ${result.shipment.awb}`);
+        setSuccess({ text: `Shipment booked. AWB: ${result.shipment.awb}`, shipmentId: result.shipment.id });
       } else {
-        setSuccess("Local shipment saved (no AWB). Add DELHIVERY_API_KEY to enable live carrier booking.");
+        setSuccess({
+          text: "Local shipment saved (no AWB). Add DELHIVERY_API_KEY to enable live carrier booking.",
+          shipmentId: result.shipment.id,
+        });
       }
       setOrderId("");
     } catch (err) {
@@ -145,12 +150,25 @@ export function CreateShipment() {
           </div>
           <div>
             <label className={labelClass}>Origin pincode</label>
-            <input required value={originPincode} onChange={(e) => setOriginPincode(e.target.value)} className={inputClass} />
+            <input
+              required
+              inputMode="numeric"
+              pattern={PINCODE_PATTERN}
+              maxLength={6}
+              title="6-digit Indian PIN"
+              value={originPincode}
+              onChange={(e) => setOriginPincode(e.target.value)}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Destination pincode</label>
             <input
               required
+              inputMode="numeric"
+              pattern={PINCODE_PATTERN}
+              maxLength={6}
+              title="6-digit Indian PIN"
               value={destinationPincode}
               onChange={(e) => {
                 setDestinationPincode(e.target.value);
@@ -203,8 +221,23 @@ export function CreateShipment() {
           </div>
         </div>
 
+        {clients && clients.length === 0 && (
+          <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+            No clients found. Run <span className="font-mono">supabase/seed.sql</span> (includes Test Client) or insert a
+            row into <span className="font-mono">clients</span>.
+          </div>
+        )}
         {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
-        {success && <div className="text-xs text-success bg-success/10 border border-success/30 rounded px-2 py-1.5">{success}</div>}
+        {success && (
+          <div className="text-xs text-success bg-success/10 border border-success/30 rounded px-2 py-1.5">
+            {success.text}{" "}
+            {success.shipmentId && (
+              <Link to={`/shipments/${success.shipmentId}`} className="underline decoration-dotted">
+                View shipment
+              </Link>
+            )}
+          </div>
+        )}
 
         <button
           type="submit"

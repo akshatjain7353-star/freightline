@@ -75,6 +75,10 @@ export function BulkUpload() {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
+        if (result.data.length === 0) {
+          setError("That CSV has no data rows.");
+          return;
+        }
         setRawRows(result.data);
         setCsvHeaders(result.meta.fields ?? []);
       },
@@ -143,6 +147,13 @@ export function BulkUpload() {
             set.
           </div>
         )}
+        <p className="text-xs text-muted">
+          Need a starting file?{" "}
+          <a href="/sample-bulk-upload.csv" download className="underline decoration-dotted text-secondary hover:text-primary">
+            Download a sample CSV
+          </a>{" "}
+          (uses the seeded Test Client UUID and 110001 → 400001).
+        </p>
         <div className="bg-surface border border-border rounded p-4 flex items-center gap-4">
           <input
             type="file"

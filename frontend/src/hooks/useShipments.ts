@@ -63,6 +63,29 @@ export function useShipment(id: string | undefined) {
   });
 }
 
+export interface TrackingEvent {
+  id: string;
+  status: string;
+  event_timestamp: string;
+  location: string | null;
+}
+
+export function useShipmentTracking(id: string | undefined) {
+  return useQuery({
+    queryKey: ["shipment-tracking", id],
+    enabled: !!id,
+    queryFn: async (): Promise<TrackingEvent[]> => {
+      const { data, error } = await supabase
+        .from("tracking_events")
+        .select("id, status, event_timestamp, location")
+        .eq("shipment_id", id)
+        .order("event_timestamp", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as TrackingEvent[];
+    },
+  });
+}
+
 export function useRelatedShipments(id: string | undefined) {
   return useQuery({
     queryKey: ["related-shipments", id],

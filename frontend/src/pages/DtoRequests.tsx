@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { approveDtoRequest, fetchDtoRequests, rejectDtoRequest, type DtoRequest } from "../api/backend";
 import { StagingBanner } from "../components/common/StagingBanner";
-import { FEATURES } from "../lib/feature-flags";
+import { FEATURES, isFeatureActionEnabled } from "../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -99,8 +99,8 @@ export function DtoRequests() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button
-                      disabled={FEATURES.dtoRequests.readiness !== "ready"}
-                      title={FEATURES.dtoRequests.readiness !== "ready" ? FEATURES.dtoRequests.reason : undefined}
+                      disabled={!isFeatureActionEnabled("dtoRequests")}
+                      title={!isFeatureActionEnabled("dtoRequests") ? FEATURES.dtoRequests.reason : undefined}
                       onClick={() => setExpandedRow(expandedRow === `${r.id}-approve` ? null : `${r.id}-approve`)}
                       className="text-xs px-2 py-1 rounded border border-success/40 text-success hover:bg-success/10 disabled:opacity-50"
                     >
@@ -119,7 +119,7 @@ export function DtoRequests() {
                   <div className="mt-3 pt-3 border-t border-border flex items-center gap-3">
                     <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className={inputClass} />
                     <button
-                      disabled={busyRow === r.id || FEATURES.dtoRequests.readiness !== "ready"}
+                      disabled={busyRow === r.id || !isFeatureActionEnabled("dtoRequests")}
                       onClick={() => handleApprove(r.id)}
                       className="text-xs px-3 py-1.5 rounded bg-success/90 text-white hover:opacity-90 disabled:opacity-50 shrink-0"
                     >

@@ -208,3 +208,7 @@ export function featureBadgeLabel(readiness: FeatureReadiness): string | null {
   if (readiness === "staging") return "Staging";
   return null;
 }
+
+export function isFeatureActionEnabled(featureId: FeatureId): boolean {
+  return FEATURES[featureId].readiness === "ready";
+}

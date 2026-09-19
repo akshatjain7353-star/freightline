@@ -3,7 +3,7 @@ import { AppLayout } from "../../components/layout/AppLayout";
 import { useClients } from "../../hooks/useReferenceData";
 import { fetchInvoices, generateInvoice, type ClientInvoice } from "../../api/backend";
 import { StagingBanner } from "../../components/common/StagingBanner";
-import { FEATURES } from "../../lib/feature-flags";
+import { FEATURES, isFeatureActionEnabled } from "../../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -98,8 +98,8 @@ export function Invoices() {
           )}
           <button
             onClick={handleGenerate}
-            disabled={generating || !clientId || FEATURES.invoices.readiness !== "ready"}
-            title={FEATURES.invoices.readiness !== "ready" ? FEATURES.invoices.reason : undefined}
+            disabled={generating || !clientId || !isFeatureActionEnabled("invoices")}
+            title={!isFeatureActionEnabled("invoices") ? FEATURES.invoices.reason : undefined}
             className="bg-accent text-accent-fg rounded py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 self-start px-6"
           >
             {generating ? "Generating..." : "Generate invoice"}

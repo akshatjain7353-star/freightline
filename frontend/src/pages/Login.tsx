@@ -4,6 +4,17 @@ import { useAuth } from "../lib/auth-context";
 
 const setupReady = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
+function friendlyAuthError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
+    return "Email or password is incorrect.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "This account’s email is not confirmed yet. Confirm it in Supabase Auth.";
+  }
+  return message;
+}
+
 export function Login() {
   const { session, signIn } = useAuth();
   const [email, setEmail] = useState("");
@@ -15,11 +26,12 @@ export function Login() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!setupReady) return;
     setSubmitting(true);
     setError(null);
     const { error: signInError } = await signIn(email, password);
     setSubmitting(false);
-    if (signInError) setError(signInError);
+    if (signInError) setError(friendlyAuthError(signInError));
   }
 
   return (
@@ -42,6 +54,7 @@ export function Login() {
           <input
             type="email"
             required
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-accent"
@@ -52,6 +65,7 @@ export function Login() {
           <input
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-accent"
@@ -60,7 +74,8 @@ export function Login() {
         <button
           type="submit"
           disabled={submitting || !setupReady}
-          className="bg-accent text-accent-fg rounded py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          title={!setupReady ? "Set frontend env before signing in" : undefined}
+          className="bg-accent text-accent-fg rounded py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Signing in..." : "Sign in"}
         </button>

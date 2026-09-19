@@ -10,7 +10,7 @@ import {
 } from "../api/backend";
 import type { Shipment } from "../lib/types";
 import { StagingBanner } from "../components/common/StagingBanner";
-import { FEATURES } from "../lib/feature-flags";
+import { FEATURES, isFeatureActionEnabled } from "../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -135,11 +135,11 @@ export function NdrQueue() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button
-                        disabled={busyRow === s.id || atLimit || FEATURES.ndrReattempt.readiness !== "ready"}
+                        disabled={busyRow === s.id || atLimit || !isFeatureActionEnabled("ndrReattempt")}
                         onClick={() => handleReattempt(s.id)}
                         className="text-xs px-2 py-1 rounded border border-border text-secondary hover:text-primary hover:border-accent disabled:opacity-50"
                         title={
-                          FEATURES.ndrReattempt.readiness !== "ready"
+                          !isFeatureActionEnabled("ndrReattempt")
                             ? FEATURES.ndrReattempt.reason
                             : atLimit
                               ? "Reattempt limit reached — convert to RTO"

@@ -21,7 +21,15 @@ export function Shipments() {
   return (
     <AppLayout title="Shipments">
       <Filters filters={filters} onChange={handleFiltersChange} carriers={carriers ?? []} clients={clients ?? []} />
-      <ShipmentsTable shipments={data?.rows ?? []} isLoading={isLoading} />
+      <ShipmentsTable
+        shipments={data?.rows ?? []}
+        isLoading={isLoading}
+        emptyHint={
+          Object.values(filters).some(Boolean)
+            ? "No shipments match these filters."
+            : "No shipments yet. Create one, upload a CSV, or run supabase/seed.sql for sample Phase 1 rows."
+        }
+      />
       {!isLoading && (
         <Pagination page={page} pageSize={SHIPMENTS_PAGE_SIZE} totalCount={data?.totalCount ?? 0} onPageChange={setPage} />
       )}
