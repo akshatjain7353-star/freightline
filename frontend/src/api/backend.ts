@@ -115,6 +115,45 @@ export function fetchCapabilities() {
   return getJson<Capabilities>("/api/capabilities");
 }
 
+export interface ClientShipment {
+  id: string;
+  awb: string | null;
+  order_id: string;
+  client_id: string;
+  client_name: string | null;
+  carrier_name: string | null;
+  origin_pincode: string;
+  destination_pincode: string;
+  destination_address_line: string | null;
+  destination_city: string | null;
+  weight_grams: number;
+  chargeable_weight_grams: number;
+  payment_mode: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function fetchClientProfile() {
+  return getJson<{ clientId: string; clientName: string }>("/api/client/me");
+}
+
+export function fetchClientShipments(page = 0, search?: string) {
+  const params = new URLSearchParams({ page: String(page) });
+  if (search) params.set("search", search);
+  return getJson<{ rows: ClientShipment[]; totalCount: number }>(`/api/client/shipments?${params.toString()}`);
+}
+
+export function fetchClientShipment(id: string) {
+  return getJson<{ shipment: ClientShipment }>(`/api/client/shipments/${id}`);
+}
+
+export function fetchClientShipmentTracking(id: string) {
+  return getJson<{ events: { id: string; status: string; event_timestamp: string; location: string | null }[] }>(
+    `/api/client/shipments/${id}/tracking`,
+  );
+}
+
 export interface CreateShipmentInput extends RateCalculatorInput {
   orderId: string;
   clientId: string;

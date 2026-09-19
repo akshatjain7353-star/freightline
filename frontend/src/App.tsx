@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth-context";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import { Login } from "./pages/Login";
+import { ClientProtectedRoute } from "./components/common/ClientProtectedRoute";
+import { ClientShipments } from "./pages/client/ClientShipments";
+import { ClientShipmentDetail } from "./pages/client/ClientShipmentDetail";
 import { Dashboard } from "./pages/Dashboard";
 import { Shipments } from "./pages/Shipments";
 import { CreateShipment } from "./pages/CreateShipment";
@@ -32,7 +35,24 @@ export function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login audience="ops" />} />
+            <Route path="/client/login" element={<Login audience="client" />} />
+            <Route
+              path="/client/shipments"
+              element={
+                <ClientProtectedRoute>
+                  <ClientShipments />
+                </ClientProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/shipments/:id"
+              element={
+                <ClientProtectedRoute>
+                  <ClientShipmentDetail />
+                </ClientProtectedRoute>
+              }
+            />
             <Route
               path="/"
               element={

@@ -6,6 +6,8 @@ import type { AppRole } from "./types";
 interface AuthContextValue {
   session: Session | null;
   role: AppRole | null;
+  clientId: string | null;
+  isClientUser: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -18,24 +20,49 @@ async function fetchRole(userId: string): Promise<AppRole | null> {
   return (data?.role as AppRole | undefined) ?? null;
 }
 
+async function fetchClientId(userId: string): Promise<string | null> {
+  const { data } = await supabase.from("client_users").select("client_id").eq("user_id", userId).maybeSingle();
+  return data?.client_id ?? null;
+}
+
+async function loadIdentity(userId: string): Promise<{ role: AppRole | null; clientId: string | null }> {
+  const [role, clientId] = await Promise.all([fetchRole(userId), fetchClientId(userId)]);
+  return { role, clientId };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [clientId, setClientId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
-      setRole(data.session ? await fetchRole(data.session.user.id) : null);
+      if (data.session) {
+        const identity = await loadIdentity(data.session.user.id);
+        setRole(identity.role);
+        setClientId(identity.clientId);
+      } else {
+        setRole(null);
+        setClientId(null);
+      }
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession) {
-        fetchRole(newSession.user.id).then(setRole);
+        setLoading(true);
+        loadIdentity(newSession.user.id).then((identity) => {
+          setRole(identity.role);
+          setClientId(identity.clientId);
+          setLoading(false);
+        });
       } else {
         setRole(null);
+        setClientId(null);
+        setLoading(false);
       }
     });
 
@@ -51,7 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }
 
-  return <AuthContext.Provider value={{ session, role, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
+  const isClientUser = Boolean(clientId) && !role;
+
+  return (
+    <AuthContext.Provider value={{ session, role, clientId, isClientUser, loading, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

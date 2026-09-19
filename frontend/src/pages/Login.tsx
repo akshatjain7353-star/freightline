@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 const setupReady = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
@@ -15,14 +15,19 @@ function friendlyAuthError(message: string): string {
   return message;
 }
 
-export function Login() {
-  const { session, signIn } = useAuth();
+function postLoginPath(isClientUser: boolean): string {
+  return isClientUser ? "/client/shipments" : "/";
+}
+
+export function Login({ audience = "ops" }: { audience?: "ops" | "client" }) {
+  const { session, isClientUser, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isClient = audience === "client";
 
-  if (session) return <Navigate to="/" replace />;
+  if (!loading && session) return <Navigate to={postLoginPath(isClientUser)} replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -35,11 +40,13 @@ export function Login() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-app">
-      <form onSubmit={handleSubmit} className="w-80 bg-surface border border-border rounded p-6 flex flex-col gap-4">
+    <div className="min-h-screen w-screen flex items-center justify-center bg-app px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface border border-border rounded p-6 flex flex-col gap-4">
         <div>
           <h1 className="font-mono text-sm font-semibold tracking-wider text-primary">FREIGHTLINE</h1>
-          <p className="text-xs text-muted mt-1">Time Bound internal ops console</p>
+          <p className="text-xs text-muted mt-1">
+            {isClient ? "Track your Time Bound shipments" : "Time Bound internal ops console"}
+          </p>
         </div>
         {!setupReady && (
           <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
@@ -79,6 +86,23 @@ export function Login() {
         >
           {submitting ? "Signing in..." : "Sign in"}
         </button>
+        <p className="text-xs text-muted">
+          {isClient ? (
+            <>
+              Time Bound staff?{" "}
+              <Link to="/login" className="underline decoration-dotted text-secondary hover:text-primary">
+                Ops sign in
+              </Link>
+            </>
+          ) : (
+            <>
+              Shipper?{" "}
+              <Link to="/client/login" className="underline decoration-dotted text-secondary hover:text-primary">
+                Track shipments
+              </Link>
+            </>
+          )}
+        </p>
       </form>
     </div>
   );

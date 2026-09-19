@@ -14,6 +14,7 @@ from the seeded rate card and saves local shipments (no AWB).
 | Surface | Status |
 |---|---|
 | Login + roles (`admin`, `accounts_ops`, `ops_only`) | Ready — Supabase Auth + `user_roles` + RLS + backend middleware |
+| Client tracking portal (`/client/login`) | Ready — `client_users` links an Auth user to one `clients.id`; list + detail + timeline only |
 | Rate Calculator | Ready — live Delhivery quote when a key is set, otherwise rate-card fallback |
 | Create Shipment / Bulk Upload CSV | Ready — live booking when a key is set, otherwise local save (no AWB) |
 | Shipments list + detail status | Ready |
@@ -71,7 +72,7 @@ fails if the copies drift from each other or from the root file.
 ### 1. Supabase project
 
 1. Create a Supabase project.
-2. Run **all** migrations in filename order (`0001_schema.sql` through `0023_refresh_rate_card_views.sql`). `0006_add_dto_status.sql` must commit before `0007_shipment_schema_fixes.sql` (Postgres requires a new enum value to be committed before it is usable). If the SQL editor is awkward, `supabase/manual-apply/` has batched files.
+2. Run **all** migrations in filename order (`0001_schema.sql` through `0024_client_portal.sql`). `0006_add_dto_status.sql` must commit before `0007_shipment_schema_fixes.sql` (Postgres requires a new enum value to be committed before it is usable). If the SQL editor is awkward, `supabase/manual-apply/` has batched files through 0023; apply `0024_client_portal.sql` after those.
 3. Run `supabase/seed.sql` **after** the migrations. It loads:
    - Delhivery carrier, rate card, zones, metro list, ~18 metro pincodes
    - **Test Client** (`00000000-0000-0000-0000-000000000201`)
@@ -85,8 +86,16 @@ fails if the copies drift from each other or from the root file.
    ```
 
    A user with no `user_roles` row can sign in; the dashboard explains that pricing/admin stay blocked until a role is assigned.
-6. Create Shipment / Bulk Upload already have **Test Client**. Bulk Upload has a sample CSV (`frontend/public/sample-bulk-upload.csv`) that uses that client UUID and `110001` → `400001`.
-7. Optional larger demo (70 shipments, invoices, remittance): `cd backend && npm run seed:demo` after backend `.env` is set. Invoice generate stays disabled in the UI; the script writes drafts via the service layer for admin inspection only.
+6. **Client tracking portal** (shipper login, not ops). Create a second Auth user, then link them to Test Client — do **not** also insert `user_roles` for this user:
+
+   ```sql
+   insert into client_users (user_id, client_id)
+   values ('<client-auth-user-uuid>', '00000000-0000-0000-0000-000000000201');
+   ```
+
+   Sign in at `/client/login`. They see only that client’s shipments and tracking. Ops APIs return 403 for this JWT.
+7. Create Shipment / Bulk Upload already have **Test Client**. Bulk Upload has a sample CSV (`frontend/public/sample-bulk-upload.csv`) that uses that client UUID and `110001` → `400001`.
+8. Optional larger demo (70 shipments, invoices, remittance): `cd backend && npm run seed:demo` after backend `.env` is set. Invoice generate stays disabled in the UI; the script writes drafts via the service layer for admin inspection only.
 
 ### 2. Node.js
 
@@ -154,12 +163,13 @@ Needs a real Supabase project. Delhivery key is optional (steps note the differe
 8. Assign `accounts_ops` and `ops_only` users via `user_roles`.
 9. `ops_only`: no Rate Calculator / Rate Cards / Invoices / Vendor Reconciliation / NDR / DTO / Reverse Pickup / billing items in the sidebar. Direct URLs to gated screens show Coming soon. Shipments Cost and Dashboard Revenue show `—`. Create Shipment and Bulk Upload still work.
 10. `accounts_ops`: Rate Cards and staged billing screens are visible with banners. No user-management UI (expected).
+11. Client portal: sign in at `/client/login` with a `client_users` account. Confirm only Test Client rows, no cost/revenue, and `/` redirects to `/client/shipments`. An ops JWT must not open `/client/shipments`.
 
 ### Staged screens (admin)
 
-11. Shipment detail: Schedule Pickup, View/Print Label, and Initiate DTO are disabled with an honest reason. DTO is only offered after `delivered` (and still disabled until the reverse-pickup API is verified).
-12. NDR Queue: Request Reattempt is disabled; Edit Address / Contact / Convert to RTO still work on an `ndr` shipment.
-13. Invoices: Generate is disabled. Do not treat listed totals as filing-ready.
+12. Shipment detail: Schedule Pickup, View/Print Label, and Initiate DTO are disabled with an honest reason. DTO is only offered after `delivered` (and still disabled until the reverse-pickup API is verified).
+13. NDR Queue: Request Reattempt is disabled; Edit Address / Contact / Convert to RTO still work on an `ndr` shipment.
+14. Invoices: Generate is disabled. Do not treat listed totals as filing-ready.
 
 ## Placeholder / needs real data
 
