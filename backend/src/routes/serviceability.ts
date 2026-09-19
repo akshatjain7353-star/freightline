@@ -1,18 +1,22 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getCarrierAdapter } from "../adapters/registry.js";
+import { publicErrorMessage, sendError, sendUnexpectedError } from "../lib/http-error.js";
+import { pincodeSchema } from "../lib/shipment-input.js";
 
 export const serviceabilityRouter = Router();
 
 const singleSchema = z.object({
   carrierCode: z.string().min(1).default("delhivery"),
-  destinationPincode: z.string().min(4),
+  destinationPincode: pincodeSchema,
 });
 
 serviceabilityRouter.post("/serviceability-check", async (req, res) => {
   const parsed = singleSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Destination pincode must be a 6-digit Indian PIN.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   try {
@@ -20,19 +24,21 @@ serviceabilityRouter.post("/serviceability-check", async (req, res) => {
     const result = await adapter.checkServiceability(parsed.data.destinationPincode);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: "serviceability_check_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "serviceability_check_failed", "Could not check serviceability.");
   }
 });
 
 const bulkSchema = z.object({
   carrierCode: z.string().min(1).default("delhivery"),
-  destinationPincodes: z.array(z.string().min(4)).min(1).max(500),
+  destinationPincodes: z.array(pincodeSchema).min(1).max(500),
 });
 
 serviceabilityRouter.post("/serviceability-check/bulk", async (req, res) => {
   const parsed = bulkSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Each destination pincode must be a 6-digit Indian PIN.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   try {
@@ -47,12 +53,16 @@ serviceabilityRouter.post("/serviceability-check/bulk", async (req, res) => {
         try {
           return await adapter.checkServiceability(pincode);
         } catch (err) {
-          return { pincode, serviceable: false, error: (err as Error).message };
+          return {
+            pincode,
+            serviceable: false,
+            error: publicErrorMessage(err, "Could not check this pincode."),
+          };
         }
       }),
     );
     res.json({ results });
   } catch (err) {
-    res.status(500).json({ error: "bulk_serviceability_check_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "bulk_serviceability_check_failed", "Could not check serviceability.");
   }
 });

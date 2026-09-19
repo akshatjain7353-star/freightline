@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { sendError, sendUnexpectedError } from "../lib/http-error.js";
 import { requireRole } from "../middleware/auth.js";
 import { listRateCards, createNewRateCardVersion } from "../services/rate-card-service.js";
 
@@ -21,7 +22,7 @@ rateCardsRouter.get("/rate-cards", requireRole("admin", "accounts_ops"), async (
     const rateCards = await listRateCards(carrierCode);
     res.json({ rateCards });
   } catch (err) {
-    res.status(500).json({ error: "rate_cards_fetch_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "rate_cards_fetch_failed", "Could not load rate cards.");
   }
 });
 
@@ -47,13 +48,15 @@ const newVersionSchema = z.object({
 rateCardsRouter.post("/rate-cards", requireRole("admin", "accounts_ops"), async (req, res) => {
   const parsed = newVersionSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+    return sendError(res, 400, "invalid_request", "Check rate card name, dates, and slab prices.", {
+      details: parsed.error.flatten(),
+    });
   }
 
   try {
     const newCard = await createNewRateCardVersion(parsed.data, req.user?.id);
     res.status(201).json({ rateCard: newCard });
   } catch (err) {
-    res.status(500).json({ error: "rate_card_creation_failed", message: (err as Error).message });
+    sendUnexpectedError(res, err, "rate_card_creation_failed", "Could not save this rate card version.");
   }
 });

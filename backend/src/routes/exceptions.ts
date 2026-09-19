@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendError } from "../lib/http-error.js";
 import { supabase } from "../supabase/client.js";
 import { writeAuditLog } from "../services/audit-log-service.js";
 
@@ -12,7 +13,7 @@ exceptionsRouter.get("/exceptions", async (req, res) => {
     .eq("status", status)
     .order("created_at", { ascending: false });
   if (error) {
-    return res.status(500).json({ error: "exceptions_fetch_failed", message: error.message });
+    return sendError(res, 500, "exceptions_fetch_failed", "Could not load exceptions.");
   }
   res.json({ exceptions: data ?? [] });
 });
@@ -25,7 +26,7 @@ exceptionsRouter.post("/exceptions/:id/resolve", async (req, res) => {
     .select()
     .single();
   if (error || !exceptionRow) {
-    return res.status(404).json({ error: "exception_not_found", message: error?.message });
+    return sendError(res, 404, "exception_not_found", "That exception was not found.");
   }
 
   await writeAuditLog({

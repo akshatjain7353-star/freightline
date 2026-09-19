@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { checkServiceability, createShipment } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
 import { useCapabilities } from "../hooks/useCapabilities";
-import { PINCODE_PATTERN } from "../lib/validation";
+import { isValidPincode, PINCODE_PATTERN } from "../lib/validation";
 import type { PaymentMode } from "../lib/types";
 
 const inputClass =
@@ -40,7 +40,7 @@ export function CreateShipment() {
   >("idle");
 
   async function handlePincodeBlur() {
-    if (destinationPincode.length < 4) {
+    if (!isValidPincode(destinationPincode)) {
       setServiceability("idle");
       return;
     }

@@ -172,9 +172,9 @@ export function ShipmentDetail() {
           </div>
         </div>
 
-        {trackingEvents && trackingEvents.length > 0 && (
-          <div className="bg-surface border border-border rounded p-4">
-            <div className="text-sm font-medium text-secondary mb-3">Tracking</div>
+        <div className="bg-surface border border-border rounded p-4">
+          <div className="text-sm font-medium text-secondary mb-3">Tracking</div>
+          {trackingEvents && trackingEvents.length > 0 ? (
             <ol className="flex flex-col gap-2">
               {trackingEvents.map((event) => (
                 <li key={event.id} className="text-xs text-secondary flex gap-3">
@@ -186,8 +186,14 @@ export function ShipmentDetail() {
                 </li>
               ))}
             </ol>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-muted">
+              {shipment.awb
+                ? "No tracking events yet. The poller updates this after the next successful Delhivery scan."
+                : "Local bookings have no AWB, so the tracking poller cannot fetch carrier scans."}
+            </p>
+          )}
+        </div>
 
         {message && (
           <div
