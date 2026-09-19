@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   FEATURES,
   FeatureNotReadyError,
+  isFeatureActionEnabled,
   isOpsOnlyHidden,
   publicFeatureCatalog,
   UNVERIFIED_API_FEATURES,
@@ -57,6 +58,12 @@ describe("feature-readiness catalog", () => {
     assert.equal(err.featureId, "pickup");
     assert.match(err.message, /not ready/i);
     assert.doesNotMatch(err.message, /\/fm\/request/);
+  });
+
+  it("disables unverified actions until the flag is flipped", () => {
+    assert.equal(isFeatureActionEnabled("createShipment"), true);
+    assert.equal(isFeatureActionEnabled("pickup"), false);
+    assert.equal(isFeatureActionEnabled("invoices"), false);
   });
 
   it("exposes a public catalog without dropping ids", () => {

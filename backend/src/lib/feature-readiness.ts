@@ -236,6 +236,10 @@ export function isOpsOnlyHidden(featureId: FeatureId): boolean {
   return FEATURES[featureId].hideFromOpsOnly;
 }
 
+export function isFeatureActionEnabled(featureId: FeatureId): boolean {
+  return FEATURES[featureId].readiness === "ready";
+}
+
 export function featureNotReadyPayload(err: FeatureNotReadyError) {
   return {
     error: err.code,
