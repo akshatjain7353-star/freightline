@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { checkServiceability, createShipment } from "../api/backend";
 import { useCarriers, useClients } from "../hooks/useReferenceData";
+import { useCapabilities } from "../hooks/useCapabilities";
 import type { PaymentMode } from "../lib/types";
 
 const inputClass =
@@ -11,6 +12,8 @@ const labelClass = "text-xs text-secondary mb-1 block";
 export function CreateShipment() {
   const { data: clients } = useClients();
   const { data: carriers } = useCarriers();
+  const { data: capabilities } = useCapabilities();
+  const manualBooking = capabilities?.manualBookingEnabled ?? false;
 
   const [orderId, setOrderId] = useState("");
   const [clientId, setClientId] = useState("");
@@ -30,9 +33,9 @@ export function CreateShipment() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [serviceability, setServiceability] = useState<"idle" | "checking" | "serviceable" | "non_serviceable">(
-    "idle",
-  );
+  const [serviceability, setServiceability] = useState<
+    "idle" | "checking" | "serviceable" | "non_serviceable" | "skipped"
+  >("idle");
 
   async function handlePincodeBlur() {
     if (destinationPincode.length < 4) {
@@ -42,7 +45,11 @@ export function CreateShipment() {
     setServiceability("checking");
     try {
       const result = await checkServiceability(destinationPincode, carrierCode);
-      setServiceability(result.serviceable ? "serviceable" : "non_serviceable");
+      if (result.raw?.skipped) {
+        setServiceability("skipped");
+      } else {
+        setServiceability(result.serviceable ? "serviceable" : "non_serviceable");
+      }
     } catch {
       // Fail open on the pre-check itself — the hard backstop on the server
       // (NonServiceableError) still catches this at actual booking time.
@@ -70,8 +77,12 @@ export function CreateShipment() {
         dimensions: { lengthCm: parseFloat(length), widthCm: parseFloat(width), heightCm: parseFloat(height) },
         paymentMode,
         shipmentValueRupees: parseFloat(shipmentValue) || 0,
-      })) as { shipment: { awb: string } };
-      setSuccess(`Shipment booked. AWB: ${result.shipment.awb}`);
+      })) as { shipment: { awb: string | null }; bookingMode?: string };
+      if (result.shipment.awb) {
+        setSuccess(`Shipment booked. AWB: ${result.shipment.awb}`);
+      } else {
+        setSuccess("Local shipment saved (no AWB). Add DELHIVERY_API_KEY to enable live carrier booking.");
+      }
       setOrderId("");
     } catch (err) {
       setError((err as Error).message);
@@ -82,6 +93,13 @@ export function CreateShipment() {
 
   return (
     <AppLayout title="Create Shipment">
+      {manualBooking && (
+        <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2 mb-4 max-w-2xl">
+          Delhivery is not configured. Booking will save a local shipment without an AWB so ops can still
+          track orders in this console. Set <span className="font-mono">DELHIVERY_API_KEY</span> on the
+          backend to enable live booking.
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="max-w-2xl bg-surface border border-border rounded p-5 flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -142,6 +160,9 @@ export function CreateShipment() {
               className={inputClass}
             />
             {serviceability === "checking" && <div className="text-xs text-muted mt-1">Checking serviceability…</div>}
+            {serviceability === "skipped" && (
+              <div className="text-xs text-warning mt-1">Serviceability not checked (carrier API not configured)</div>
+            )}
             {serviceability === "serviceable" && <div className="text-xs text-success mt-1">Serviceable</div>}
             {serviceability === "non_serviceable" && (
               <div className="text-xs text-danger mt-1">Not serviceable by this carrier</div>

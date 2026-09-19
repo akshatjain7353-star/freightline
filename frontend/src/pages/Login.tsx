@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
+const setupReady = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+
 export function Login() {
   const { session, signIn } = useAuth();
   const [email, setEmail] = useState("");
@@ -27,6 +29,13 @@ export function Login() {
           <h1 className="font-mono text-sm font-semibold tracking-wider text-primary">FREIGHTLINE</h1>
           <p className="text-xs text-muted mt-1">Time Bound internal ops console</p>
         </div>
+        {!setupReady && (
+          <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+            Frontend env is incomplete. Copy <span className="font-mono">frontend/.env.example</span> to{" "}
+            <span className="font-mono">.env</span> and set <span className="font-mono">VITE_SUPABASE_URL</span> and{" "}
+            <span className="font-mono">VITE_SUPABASE_ANON_KEY</span>.
+          </div>
+        )}
         {error && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded px-2 py-1.5">{error}</div>}
         <div className="flex flex-col gap-1">
           <label className="text-xs text-secondary">Email</label>
@@ -50,7 +59,7 @@ export function Login() {
         </div>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !setupReady}
           className="bg-accent text-accent-fg rounded py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? "Signing in..." : "Sign in"}

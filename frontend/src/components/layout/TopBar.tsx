@@ -3,7 +3,7 @@ import { useAuth } from "../../lib/auth-context";
 
 export function TopBar({ title }: { title: string }) {
   const { theme, toggleTheme } = useTheme();
-  const { session, signOut } = useAuth();
+  const { session, role, signOut } = useAuth();
 
   return (
     <header className="h-14 shrink-0 border-b border-border bg-surface flex items-center justify-between gap-3 px-6">
@@ -20,6 +20,11 @@ export function TopBar({ title }: { title: string }) {
             <span className="truncate max-w-[16ch]" title={session.user.email}>
               {session.user.email}
             </span>
+            {role && (
+              <span className="font-mono text-[10px] uppercase tracking-wide text-muted border border-border rounded px-1.5 py-0.5">
+                {role}
+              </span>
+            )}
             <button onClick={signOut} className="hover:text-primary underline decoration-dotted whitespace-nowrap">
               Sign out
             </button>

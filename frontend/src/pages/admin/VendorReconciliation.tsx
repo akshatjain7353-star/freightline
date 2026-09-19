@@ -8,6 +8,7 @@ import {
   type VendorInvoiceLine,
   type VendorReconciliationResult,
 } from "../../api/backend";
+import { StagingBanner } from "../../components/common/StagingBanner";
 
 const IMPORTER_KEY = "vendor-reconciliation";
 const REQUIRED_FIELDS: RequiredField[] = [
@@ -89,6 +90,7 @@ export function VendorReconciliation() {
   return (
     <AppLayout title="Vendor Reconciliation">
       <div className="max-w-3xl flex flex-col gap-4">
+        <StagingBanner feature="vendorReconciliation" />
         <div className="bg-surface border border-border rounded p-4 text-sm text-secondary">
           <p>
             Upload the vendor's invoice CSV to compare what they billed against the expected amount recomputed

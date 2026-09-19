@@ -78,6 +78,18 @@ export function calculateRates(input: RateCalculatorInput): Promise<{ quotes: Ra
   return postJson("/api/rate-calculator", input);
 }
 
+export interface Capabilities {
+  delhiveryConfigured: boolean;
+  delhiveryEnv: "staging" | "production";
+  manualBookingEnabled: boolean;
+  trackingPollerEnabled: boolean;
+  features: { id: string; title: string; readiness: string; hideFromOpsOnly: boolean; reason: string }[];
+}
+
+export function fetchCapabilities() {
+  return getJson<Capabilities>("/api/capabilities");
+}
+
 export interface CreateShipmentInput extends RateCalculatorInput {
   orderId: string;
   clientId: string;
@@ -109,6 +121,7 @@ export interface ServiceabilityResult {
   pincode: string;
   serviceable: boolean;
   error?: string;
+  raw?: { skipped?: boolean; reason?: string };
 }
 
 export function checkServiceability(destinationPincode: string, carrierCode = "delhivery") {

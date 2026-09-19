@@ -10,6 +10,7 @@ import {
   type CashReconciliationRow,
 } from "../api/backend";
 import type { ShipmentFilters } from "../hooks/useShipments";
+import { StagingBanner } from "../components/common/StagingBanner";
 
 const PAGE_SIZE = 50;
 
@@ -78,6 +79,7 @@ export function CashReconciliation() {
 
   return (
     <AppLayout title="Cash Reconciliation">
+      <StagingBanner feature="cashReconciliation" />
       <Filters filters={filters} onChange={handleFiltersChange} carriers={carriers ?? []} clients={clients ?? []} />
 
       {isLoading ? (

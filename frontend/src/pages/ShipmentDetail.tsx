@@ -5,6 +5,8 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { StatusPill } from "../components/shipments/StatusPill";
 import { useRelatedShipments, useShipment } from "../hooks/useShipments";
 import { fetchShipmentLabel, initiateDto, schedulePickup } from "../api/backend";
+import { StagingBanner } from "../components/common/StagingBanner";
+import { FEATURES } from "../lib/feature-flags";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent";
@@ -97,15 +99,30 @@ export function ShipmentDetail() {
   // Pickup is only relevant before the carrier has collected the package;
   // the label stays useful while the shipment is still open, but not once
   // it's reached a resolved end state.
-  const canSchedulePickup = shipment.status === "pending";
-  const pickupDisabledReason = canSchedulePickup ? null : "Already picked up";
+  const pickupApiReady = FEATURES.pickup.readiness === "ready";
+  const labelApiReady = FEATURES.label.readiness === "ready";
+  const dtoApiReady = FEATURES.reversePickup.readiness === "ready";
+  const canSchedulePickup = pickupApiReady && shipment.status === "pending";
+  const pickupDisabledReason = !pickupApiReady
+    ? FEATURES.pickup.reason
+    : shipment.status === "pending"
+      ? null
+      : "Already picked up";
   const OPEN_STATUSES = ["pending", "in_transit", "ndr"];
-  const canViewLabel = OPEN_STATUSES.includes(shipment.status);
-  const labelDisabledReason = canViewLabel
-    ? null
+  const canViewLabel = labelApiReady && OPEN_STATUSES.includes(shipment.status);
+  const labelDisabledReason = !labelApiReady
+    ? FEATURES.label.reason
+    : canViewLabel
+      ? null
+      : shipment.status === "delivered"
+        ? "Shipment already delivered"
+        : "Shipment already resolved";
+  const canInitiateDto = dtoApiReady && shipment.status === "delivered";
+  const dtoDisabledReason = !dtoApiReady
+    ? FEATURES.reversePickup.reason
     : shipment.status === "delivered"
-      ? "Shipment already delivered"
-      : "Shipment already resolved";
+      ? null
+      : "DTO is only offered after the forward shipment is delivered";
 
   return (
     <AppLayout title={`Shipment ${shipment.awb ?? shipment.order_id}`}>
@@ -153,6 +170,7 @@ export function ShipmentDetail() {
 
         <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
           <div className="text-sm font-medium text-secondary">Pickup &amp; Label</div>
+          <StagingBanner feature="pickup" />
           <div className="flex items-center gap-3 flex-wrap">
             <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className={inputClass} />
             <button
@@ -179,18 +197,22 @@ export function ShipmentDetail() {
         {shipment.status !== "dto" && (
           <div className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
             <div className="text-sm font-medium text-secondary">Initiate Return (DTO)</div>
+            <StagingBanner feature="reversePickup" />
             <p className="text-xs text-muted">
               Books a new reverse-pickup shipment (its own AWB) collecting from the customer and returning to origin.
+              Offered only after the forward shipment is delivered.
             </p>
             <div className="flex items-center gap-3 flex-wrap">
               <input type="date" value={dtoDate} onChange={(e) => setDtoDate(e.target.value)} className={inputClass} />
               <button
                 onClick={handleInitiateDto}
-                disabled={busy === "dto"}
+                disabled={busy === "dto" || !canInitiateDto}
+                title={dtoDisabledReason ?? undefined}
                 className="text-sm px-4 py-1.5 rounded bg-danger/90 text-white hover:opacity-90 disabled:opacity-50"
               >
                 {busy === "dto" ? "Booking..." : "Initiate DTO"}
               </button>
+              {dtoDisabledReason && <span className="text-xs text-muted">{dtoDisabledReason}</span>}
             </div>
           </div>
         )}

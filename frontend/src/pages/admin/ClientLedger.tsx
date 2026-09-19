@@ -13,6 +13,7 @@ import {
   type ClientLedgerSummary,
   type ClientSettlementRun,
 } from "../../api/backend";
+import { StagingBanner } from "../../components/common/StagingBanner";
 
 const inputClass =
   "bg-surface2 border border-border rounded px-2.5 py-1.5 text-sm text-primary focus:outline-none focus:border-accent w-full";
@@ -209,6 +210,7 @@ export function ClientLedger() {
   return (
     <AppLayout title="Client Ledger">
       <div className="flex flex-col gap-6 max-w-6xl">
+        <StagingBanner feature="clientLedger" />
         <div className="bg-surface border border-border rounded overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-secondary">

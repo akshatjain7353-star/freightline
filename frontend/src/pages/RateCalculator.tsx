@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { calculateRates } from "../api/backend";
+import { useCapabilities } from "../hooks/useCapabilities";
 import type { PaymentMode, RateQuote } from "../lib/types";
 
 const inputClass =
@@ -8,6 +9,7 @@ const inputClass =
 const labelClass = "text-xs text-secondary mb-1 block";
 
 export function RateCalculator() {
+  const { data: capabilities } = useCapabilities();
   const [originPincode, setOriginPincode] = useState("");
   const [destinationPincode, setDestinationPincode] = useState("");
   const [weightKg, setWeightKg] = useState("1");
@@ -45,6 +47,11 @@ export function RateCalculator() {
 
   return (
     <AppLayout title="Rate Calculator">
+      {capabilities && !capabilities.delhiveryConfigured && (
+        <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2 mb-4">
+          Delhivery is not configured. Quotes use the seeded rate-card fallback (not a live carrier API).
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <form onSubmit={handleSubmit} className="bg-surface border border-border rounded p-4 flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">

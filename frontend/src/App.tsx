@@ -36,7 +36,7 @@ export function App() {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="dashboard">
                   <Dashboard />
                 </ProtectedRoute>
               }
@@ -44,7 +44,7 @@ export function App() {
             <Route
               path="/shipments"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="shipments">
                   <Shipments />
                 </ProtectedRoute>
               }
@@ -52,7 +52,7 @@ export function App() {
             <Route
               path="/create-shipment"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="createShipment">
                   <CreateShipment />
                 </ProtectedRoute>
               }
@@ -60,7 +60,7 @@ export function App() {
             <Route
               path="/rate-calculator"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="rateCalculator">
                   <RateCalculator />
                 </ProtectedRoute>
               }
@@ -68,7 +68,7 @@ export function App() {
             <Route
               path="/bulk-upload"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="bulkUpload">
                   <BulkUpload />
                 </ProtectedRoute>
               }
@@ -76,7 +76,7 @@ export function App() {
             <Route
               path="/admin/rate-cards"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="rateCards">
                   <RateCards />
                 </ProtectedRoute>
               }
@@ -84,7 +84,7 @@ export function App() {
             <Route
               path="/admin/client-rate-cards"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="clientRateCards">
                   <ClientRateCards />
                 </ProtectedRoute>
               }
@@ -92,7 +92,7 @@ export function App() {
             <Route
               path="/cash-reconciliation"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="cashReconciliation">
                   <CashReconciliation />
                 </ProtectedRoute>
               }
@@ -100,7 +100,7 @@ export function App() {
             <Route
               path="/admin/carrier-remittance"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="carrierRemittance">
                   <CarrierRemittance />
                 </ProtectedRoute>
               }
@@ -108,7 +108,7 @@ export function App() {
             <Route
               path="/admin/client-ledger"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="clientLedger">
                   <ClientLedger />
                 </ProtectedRoute>
               }
@@ -116,7 +116,7 @@ export function App() {
             <Route
               path="/weight-discrepancies"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="weightDiscrepancies">
                   <WeightDiscrepancies />
                 </ProtectedRoute>
               }
@@ -124,7 +124,7 @@ export function App() {
             <Route
               path="/shipments/:id"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="shipments">
                   <ShipmentDetail />
                 </ProtectedRoute>
               }
@@ -132,7 +132,7 @@ export function App() {
             <Route
               path="/ndr-queue"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="ndrQueue">
                   <NdrQueue />
                 </ProtectedRoute>
               }
@@ -140,7 +140,7 @@ export function App() {
             <Route
               path="/exceptions"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="exceptions">
                   <Exceptions />
                 </ProtectedRoute>
               }
@@ -148,7 +148,7 @@ export function App() {
             <Route
               path="/admin/invoices"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="invoices">
                   <Invoices />
                 </ProtectedRoute>
               }
@@ -156,7 +156,7 @@ export function App() {
             <Route
               path="/admin/vendor-reconciliation"
               element={
-                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]}>
+                <ProtectedRoute allowedRoles={["admin", "accounts_ops"]} feature="vendorReconciliation">
                   <VendorReconciliation />
                 </ProtectedRoute>
               }
@@ -164,7 +164,7 @@ export function App() {
             <Route
               path="/create-reverse-pickup"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="reversePickup">
                   <CreateReversePickup />
                 </ProtectedRoute>
               }
@@ -172,7 +172,7 @@ export function App() {
             <Route
               path="/dto-requests"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute feature="dtoRequests">
                   <DtoRequests />
                 </ProtectedRoute>
               }
@@ -180,7 +180,7 @@ export function App() {
             <Route
               path="/admin/client-api-keys"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["admin"]} feature="clientApiKeys">
                   <ClientApiKeys />
                 </ProtectedRoute>
               }
@@ -188,7 +188,7 @@ export function App() {
             <Route
               path="/admin/unicommerce-credentials"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["admin"]} feature="unicommerce">
                   <UnicommerceCredentials />
                 </ProtectedRoute>
               }
