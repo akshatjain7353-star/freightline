@@ -33,7 +33,11 @@ shipmentsRouter.post("/shipments", async (req, res) => {
 
   try {
     const result = await bookAndCreateShipment(parsed.data);
-    res.status(201).json(maskCostFieldsForRole(result, req.user?.role));
+    const bookingMode = result.shipment.awb ? "carrier" : "local_offline";
+    res.status(201).json({
+      ...maskCostFieldsForRole(result, req.user?.role),
+      bookingMode,
+    });
   } catch (err) {
     if (err instanceof PincodeNotMappedError) {
       return res.status(422).json({ error: "pincode_not_mapped", message: err.message });

@@ -26,7 +26,9 @@ import { unicommerceShipperRouter } from "./routes/unicommerce-shipper.js";
 import { unicommerceCredentialsRouter } from "./routes/unicommerce-credentials.js";
 import { importMappingsRouter } from "./routes/import-mappings.js";
 import { dashboardRouter } from "./routes/dashboard.js";
+import { capabilitiesRouter } from "./routes/capabilities.js";
 import { startTrackingPoller } from "./jobs/tracking-poller.js";
+import { isDelhiveryConfigured } from "./config/env.js";
 
 const app = express();
 
@@ -60,6 +62,7 @@ app.use("/api", requireAuth, clientApiKeysRouter);
 app.use("/api", requireAuth, unicommerceCredentialsRouter);
 app.use("/api", requireAuth, importMappingsRouter);
 app.use("/api", requireAuth, dashboardRouter);
+app.use("/api", requireAuth, capabilitiesRouter);
 
 // Client-facing surface: authenticated by a per-client API key
 // (client-api-auth.ts), never an internal ops Supabase session.
@@ -77,5 +80,9 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 app.listen(env.PORT, () => {
   console.log(`Freightline backend listening on port ${env.PORT}`);
-  startTrackingPoller();
+  if (isDelhiveryConfigured()) {
+    startTrackingPoller();
+  } else {
+    console.log("[tracking-poller] skipped — DELHIVERY_API_KEY is not set");
+  }
 });

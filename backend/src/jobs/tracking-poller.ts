@@ -1,7 +1,7 @@
 import { supabase } from "../supabase/client.js";
 import { getCarrierAdapter } from "../adapters/registry.js";
 import { logException } from "../services/exception-log-service.js";
-import { env } from "../config/env.js";
+import { env, isDelhiveryConfigured } from "../config/env.js";
 import type { TrackingUpdate } from "../lib/types.js";
 
 // Delhivery's tracking API is documented as poll-only — no webhook support is
@@ -98,6 +98,11 @@ export async function runTrackingPollOnce() {
 }
 
 export function startTrackingPoller() {
+  if (!isDelhiveryConfigured()) {
+    console.log("[tracking-poller] skipped — DELHIVERY_API_KEY is not set");
+    return;
+  }
+
   const intervalMs = env.TRACKING_POLL_INTERVAL_MINUTES * 60 * 1000;
   console.log(`[tracking-poller] starting, interval=${env.TRACKING_POLL_INTERVAL_MINUTES}min`);
 

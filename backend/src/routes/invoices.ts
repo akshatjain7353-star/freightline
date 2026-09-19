@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
 import { generateClientInvoice, listClientInvoices } from "../services/invoice-service.js";
+import { FeatureNotReadyError, assertFeatureReady, featureNotReadyPayload } from "../lib/feature-readiness.js";
 
 export const invoicesRouter = Router();
 
@@ -27,6 +28,9 @@ invoicesRouter.post("/invoices", requireRole("admin", "accounts_ops"), async (re
     return res.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
   }
   try {
+    // Implementation stays in invoice-service.ts. GST rate / IGST split are
+    // unconfirmed — do not emit filing documents until those are signed off.
+    assertFeatureReady("invoices");
     const invoice = await generateClientInvoice(
       parsed.data.clientId,
       parsed.data.periodFrom,
@@ -35,6 +39,9 @@ invoicesRouter.post("/invoices", requireRole("admin", "accounts_ops"), async (re
     );
     res.status(201).json({ invoice });
   } catch (err) {
+    if (err instanceof FeatureNotReadyError) {
+      return res.status(501).json(featureNotReadyPayload(err));
+    }
     res.status(500).json({ error: "invoice_generation_failed", message: (err as Error).message });
   }
 });

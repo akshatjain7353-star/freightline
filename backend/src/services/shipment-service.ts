@@ -3,7 +3,8 @@ import { getCarrierAdapter } from "../adapters/registry.js";
 import { logException } from "./exception-log-service.js";
 import { PincodeNotMappedError } from "../rate-engine/zone-resolver.js";
 import { calculateClientBilledAmount } from "../rate-engine/client-rate-engine.js";
-import type { Dimensions, PaymentMode } from "../lib/types.js";
+import { isDelhiveryConfigured } from "../config/env.js";
+import type { BookingResult, Dimensions, PaymentMode } from "../lib/types.js";
 
 export type ShipmentSource = "manual" | "bulk_upload" | "unicommerce";
 
@@ -53,28 +54,44 @@ export async function bookAndCreateShipment(input: CreateShipmentInput) {
   }
 }
 
+function localOfflineBooking(orderId: string): BookingResult {
+  return {
+    awb: "",
+    raw: {
+      mode: "local_offline",
+      reason: "delhivery_not_configured",
+      orderId,
+    },
+  };
+}
+
 async function doBookAndCreateShipment(input: CreateShipmentInput) {
   const adapter = getCarrierAdapter(input.carrierCode);
+  const carrierLive = input.carrierCode !== "delhivery" || isDelhiveryConfigured();
 
-  const serviceability = await adapter.checkServiceability(input.destinationPincode);
-  if (!serviceability.serviceable) {
-    throw new NonServiceableError(input.destinationPincode);
+  if (carrierLive) {
+    const serviceability = await adapter.checkServiceability(input.destinationPincode);
+    if (!serviceability.serviceable) {
+      throw new NonServiceableError(input.destinationPincode);
+    }
   }
 
   const quote = await adapter.getRateQuote(input);
 
-  const booking = await adapter.createShipment({
-    orderId: input.orderId,
-    clientName: input.clientName,
-    addressLine: input.addressLine,
-    city: input.city,
-    originPincode: input.originPincode,
-    destinationPincode: input.destinationPincode,
-    weightGrams: input.weightGrams,
-    dimensions: input.dimensions,
-    paymentMode: input.paymentMode,
-    shipmentValueRupees: input.shipmentValueRupees,
-  });
+  const booking = carrierLive
+    ? await adapter.createShipment({
+        orderId: input.orderId,
+        clientName: input.clientName,
+        addressLine: input.addressLine,
+        city: input.city,
+        originPincode: input.originPincode,
+        destinationPincode: input.destinationPincode,
+        weightGrams: input.weightGrams,
+        dimensions: input.dimensions,
+        paymentMode: input.paymentMode,
+        shipmentValueRupees: input.shipmentValueRupees,
+      })
+    : localOfflineBooking(input.orderId);
 
   const { data: carrier, error: carrierError } = await supabase
     .from("carriers")
@@ -99,7 +116,7 @@ async function doBookAndCreateShipment(input: CreateShipmentInput) {
   const { data: shipment, error: insertError } = await supabase
     .from("shipments")
     .insert({
-      awb: booking.awb,
+      awb: booking.awb || null,
       order_id: input.orderId,
       client_id: input.clientId,
       carrier_id: carrier.id,

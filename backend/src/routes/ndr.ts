@@ -9,6 +9,7 @@ import {
   requestReattempt,
   ShipmentNotFoundError,
 } from "../services/ndr-service.js";
+import { FeatureNotReadyError, featureNotReadyPayload } from "../lib/feature-readiness.js";
 
 export const ndrRouter = Router();
 
@@ -25,6 +26,9 @@ ndrRouter.get("/ndr-queue", async (_req, res) => {
 });
 
 function handleServiceError(err: unknown, res: Response) {
+  if (err instanceof FeatureNotReadyError) {
+    return res.status(501).json(featureNotReadyPayload(err));
+  }
   if (err instanceof ShipmentNotFoundError) {
     return res.status(404).json({ error: "shipment_not_found", message: err.message });
   }

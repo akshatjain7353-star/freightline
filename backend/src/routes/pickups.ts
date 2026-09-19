@@ -7,6 +7,7 @@ import {
   scheduleReversePickup,
   ShipmentNotFoundError,
 } from "../services/pickup-service.js";
+import { FeatureNotReadyError, featureNotReadyPayload } from "../lib/feature-readiness.js";
 
 export const pickupsRouter = Router();
 
@@ -40,6 +41,9 @@ pickupsRouter.post("/shipments/:id/pickup", async (req, res) => {
     const pickupRequest = await schedulePickup(req.params.id, parsed.data.pickupDate, req.user?.id);
     res.status(201).json({ pickupRequest });
   } catch (err) {
+    if (err instanceof FeatureNotReadyError) {
+      return res.status(501).json(featureNotReadyPayload(err));
+    }
     if (err instanceof ShipmentNotFoundError) {
       return res.status(404).json({ error: "shipment_not_found", message: err.message });
     }
@@ -56,6 +60,9 @@ pickupsRouter.post("/shipments/:id/reverse-pickup", async (req, res) => {
     const result = await scheduleReversePickup(req.params.id, parsed.data.pickupDate, req.user?.id);
     res.status(201).json(result);
   } catch (err) {
+    if (err instanceof FeatureNotReadyError) {
+      return res.status(501).json(featureNotReadyPayload(err));
+    }
     if (err instanceof ShipmentNotFoundError) {
       return res.status(404).json({ error: "shipment_not_found", message: err.message });
     }
@@ -72,6 +79,9 @@ pickupsRouter.post("/reverse-pickups", async (req, res) => {
     const result = await createStandaloneReversePickup(parsed.data, req.user?.id);
     res.status(201).json(result);
   } catch (err) {
+    if (err instanceof FeatureNotReadyError) {
+      return res.status(501).json(featureNotReadyPayload(err));
+    }
     res.status(500).json({ error: "reverse_pickup_failed", message: (err as Error).message });
   }
 });
@@ -81,6 +91,9 @@ pickupsRouter.get("/shipments/:id/label", async (req, res) => {
     const label = await generateLabel(req.params.id);
     res.json(label);
   } catch (err) {
+    if (err instanceof FeatureNotReadyError) {
+      return res.status(501).json(featureNotReadyPayload(err));
+    }
     if (err instanceof ShipmentNotFoundError) {
       return res.status(404).json({ error: "shipment_not_found", message: err.message });
     }

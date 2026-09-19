@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "test": "tsx --test src/lib/feature-readiness.test.ts",
     "seed:demo": "tsx scripts/seed-demo-data.ts",
     "cleanup:demo": "tsx scripts/cleanup-demo-data.ts"
   },

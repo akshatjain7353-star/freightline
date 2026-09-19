@@ -7,6 +7,7 @@ import {
   listPendingDtoRequests,
   rejectDtoRequest,
 } from "../services/dto-request-service.js";
+import { FeatureNotReadyError, featureNotReadyPayload } from "../lib/feature-readiness.js";
 
 export const dtoRequestsRouter = Router();
 
@@ -20,6 +21,9 @@ dtoRequestsRouter.get("/dto-requests", async (_req, res) => {
 });
 
 function handleError(err: unknown, res: Response) {
+  if (err instanceof FeatureNotReadyError) {
+    return res.status(501).json(featureNotReadyPayload(err));
+  }
   if (err instanceof DtoRequestNotFoundError) {
     return res.status(404).json({ error: "dto_request_not_found", message: err.message });
   }
