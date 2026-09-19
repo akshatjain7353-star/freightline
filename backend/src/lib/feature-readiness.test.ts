@@ -95,4 +95,15 @@ describe("feature-readiness catalog", () => {
     assert.equal(catalog.length, Object.keys(FEATURES).length);
     assert.ok(catalog.every((f) => f.id && f.reason));
   });
+
+  it("capabilities payload entries have a valid readiness and matching id", () => {
+    const allowed = new Set(["ready", "staging", "unverified_api"]);
+    for (const entry of publicFeatureCatalog()) {
+      assert.ok(allowed.has(entry.readiness), entry.id);
+      assert.equal(entry.id, FEATURES[entry.id].id);
+      assert.equal(typeof entry.hideFromOpsOnly, "boolean");
+    }
+    assert.equal(FEATURES.invoices.readiness, "staging");
+    assert.equal(isFeatureActionEnabled("invoices"), false);
+  });
 });

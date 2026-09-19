@@ -10,6 +10,38 @@ export function isUniqueViolation(err: unknown): boolean {
   return code === "23505" || /duplicate key|unique constraint/i.test(message);
 }
 
+function uniqueConstraintHint(err: unknown): string {
+  if (typeof err === "object" && err) {
+    const constraint = "constraint" in err ? String((err as { constraint?: string }).constraint ?? "") : "";
+    const details = "details" in err ? String((err as { details?: string }).details ?? "") : "";
+    if (constraint) return `${constraint} ${details}`;
+    if (details) return details;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Map a unique-constraint failure to a public 409 code + message.
+ * Only shipments.order_id uses duplicate_order_id; everything else is
+ * a specific known column or a generic duplicate_record.
+ */
+export function uniqueViolationConflict(err: unknown): { code: string; message: string } {
+  const hint = uniqueConstraintHint(err);
+  if (/shipments_order_id|Key \(order_id\)/i.test(hint)) {
+    return { code: "duplicate_order_id", message: "This order ID already exists. Use a different order ID." };
+  }
+  if (/invoice_number|Key \(invoice_number\)/i.test(hint)) {
+    return { code: "duplicate_invoice_number", message: "This invoice number already exists." };
+  }
+  if (/external_reference|uq_dto_requests_client_external_reference/i.test(hint)) {
+    return {
+      code: "duplicate_external_reference",
+      message: "This external reference already exists for the client.",
+    };
+  }
+  return { code: "duplicate_record", message: "This record already exists." };
+}
+
 /**
  * Safe message for JSON responses. Expected domain errors pass through;
  * driver/DB/stack text is replaced so ops never see internals.
@@ -23,7 +55,7 @@ export function publicErrorMessage(err: unknown, fallback: string): string {
     }
   }
   if (isUniqueViolation(err)) {
-    return "This order ID already exists. Use a different order ID.";
+    return uniqueViolationConflict(err).message;
   }
   const message = err instanceof Error ? err.message : "";
   if (!message || message.length > 240 || message.includes("\n") || LEAKY_PATTERN.test(message)) {
@@ -47,7 +79,8 @@ export function sendUnexpectedError(res: Response, err: unknown, code: string, f
     return res.status(501).json(featureNotReadyPayload(err));
   }
   if (isUniqueViolation(err)) {
-    return sendError(res, 409, "duplicate_order_id", publicErrorMessage(err, fallback));
+    const conflict = uniqueViolationConflict(err);
+    return sendError(res, 409, conflict.code, conflict.message);
   }
   sendError(res, 500, code, publicErrorMessage(err, fallback));
 }

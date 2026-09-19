@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { FeatureNotReadyError } from "./feature-readiness.js";
-import { isUniqueViolation, publicErrorMessage, sendUnexpectedError } from "./http-error.js";
+import { isUniqueViolation, publicErrorMessage, sendUnexpectedError, uniqueViolationConflict } from "./http-error.js";
 import type { Response } from "express";
 
 function mockRes() {
@@ -33,6 +33,35 @@ describe("publicErrorMessage", () => {
       publicErrorMessage(err, "Could not save shipment."),
       "This order ID already exists. Use a different order ID.",
     );
+  });
+
+  it("maps unique violations by constraint, not always to duplicate_order_id", () => {
+    assert.deepEqual(
+      uniqueViolationConflict(new Error('duplicate key value violates unique constraint "shipments_order_id_key"')),
+      { code: "duplicate_order_id", message: "This order ID already exists. Use a different order ID." },
+    );
+    assert.deepEqual(
+      uniqueViolationConflict({
+        code: "23505",
+        constraint: "client_invoices_invoice_number_key",
+        message: "duplicate key value violates unique constraint",
+      }),
+      { code: "duplicate_invoice_number", message: "This invoice number already exists." },
+    );
+    assert.deepEqual(
+      uniqueViolationConflict({
+        code: "23505",
+        details: "Key (external_reference)=(REF-1) already exists.",
+      }),
+      {
+        code: "duplicate_external_reference",
+        message: "This external reference already exists for the client.",
+      },
+    );
+    assert.deepEqual(uniqueViolationConflict({ code: "23505", message: "duplicate key value" }), {
+      code: "duplicate_record",
+      message: "This record already exists.",
+    });
   });
 
   it("does not leak postgres / connection internals", () => {
@@ -85,5 +114,27 @@ describe("sendUnexpectedError on billing / gated routes", () => {
     const body = res.body as { error: string; message: string };
     assert.equal(body.error, "client_ledger_fetch_failed");
     assert.equal(body.message, "Could not load this client's ledger.");
+  });
+
+  it("returns 409 duplicate_order_id only for shipments.order_id", () => {
+    const res = mockRes();
+    sendUnexpectedError(
+      res,
+      new Error('duplicate key value violates unique constraint "shipments_order_id_key"'),
+      "shipment_creation_failed",
+      "Could not save this shipment.",
+    );
+    assert.equal(res.statusCode, 409);
+    const body = res.body as { error: string; message: string };
+    assert.equal(body.error, "duplicate_order_id");
+  });
+
+  it("returns 409 duplicate_record for an unnamed unique violation", () => {
+    const res = mockRes();
+    sendUnexpectedError(res, { code: "23505", message: "duplicate key value" }, "vendor_reconciliation_failed", "Could not reconcile.");
+    assert.equal(res.statusCode, 409);
+    const body = res.body as { error: string; message: string };
+    assert.equal(body.error, "duplicate_record");
+    assert.equal(body.message, "This record already exists.");
   });
 });
